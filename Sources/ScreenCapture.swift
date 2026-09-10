@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import CoreGraphics
 import ScreenCaptureKit
 
 public final class ScreenCapture {
@@ -7,13 +8,30 @@ public final class ScreenCapture {
     
     private init() {}
     
+    /// Check if the app currently has screen recording permission
+    public func hasPermission() -> Bool {
+        return CGPreflightScreenCaptureAccess()
+    }
+    
+    /// Request screen recording permission from macOS
+    public func requestPermission() -> Bool {
+        return CGRequestScreenCaptureAccess()
+    }
+    
+    /// Open System Settings directly to Privacy & Security -> Screen Recording
+    public func openSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+    
     /// Capture the screen or load appropriate image based on settings
     public func fetchImage() async -> CGImage? {
         let settings = AppSettings.shared
         
         switch settings.imageSourceMode {
         case .liveCapture:
-            if let img = await captureLiveScreen() {
+            if hasPermission(), let img = await captureLiveScreen() {
                 return img
             }
             // Fallback if permission not granted or capture failed
@@ -37,6 +55,8 @@ public final class ScreenCapture {
     
     /// Live display capture using ScreenCaptureKit
     public func captureLiveScreen() async -> CGImage? {
+        guard hasPermission() else { return nil }
+        
         do {
             let content = try await SCShareableContent.current
             guard let display = content.displays.first else { return nil }
@@ -75,7 +95,6 @@ public final class ScreenCapture {
             return img.cgImage(forProposedRect: nil, context: nil, hints: nil)
         }
         
-        // Also check relative to executable or Resources folder on Desktop
         let fallbackPaths = [
             Bundle.main.bundlePath + "/Contents/Resources/default.png",
             Bundle.main.bundlePath + "/Resources/default.png",

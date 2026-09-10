@@ -68,13 +68,15 @@ public final class AppSettings: ObservableObject {
     @Published public var isSensorConnected: Bool = false
     @Published public var isClosing: Bool = false
     @Published public var sensorStatusMessage: String = "Initializing sensor..."
+    @Published public var hasScreenRecordingPermission: Bool = false
     
     private init() {
         let defaults = UserDefaults.standard
         
-        // Defaults: when MacBook begins closing below 105 degrees, start animation
-        self.startTiltAngle = defaults.object(forKey: kStartTiltAngle) != nil ? defaults.double(forKey: kStartTiltAngle) : 105.0
-        self.endTiltAngle = defaults.object(forKey: kEndTiltAngle) != nil ? defaults.double(forKey: kEndTiltAngle) : 15.0
+        // Defaults: start closing animation at 80 degrees, complete at 3 degrees
+        // This ensures the animation spans the natural closing motion and doesn't finish too early
+        self.startTiltAngle = defaults.object(forKey: kStartTiltAngle) != nil ? defaults.double(forKey: kStartTiltAngle) : 80.0
+        self.endTiltAngle = defaults.object(forKey: kEndTiltAngle) != nil ? defaults.double(forKey: kEndTiltAngle) : 3.0
         self.followSpeed = defaults.object(forKey: kFollowSpeed) != nil ? defaults.double(forKey: kFollowSpeed) : 16.0
         
         let savedSource = defaults.integer(forKey: kImageSourceMode)
@@ -83,34 +85,38 @@ public final class AppSettings: ObservableObject {
         self.customImagePath = defaults.string(forKey: kCustomImagePath) ?? ""
         self.blurStrength = defaults.object(forKey: kBlurStrength) != nil ? defaults.double(forKey: kBlurStrength) : 1.0
         self.reflectionIntensity = defaults.object(forKey: kReflectionIntensity) != nil ? defaults.double(forKey: kReflectionIntensity) : 1.0
+        
+        refreshPermissions()
     }
     
-    /// Calculate normalized turn (0.0 to 1.0) given current lid angle and whether lid is closing
+    public func refreshPermissions() {
+        self.hasScreenRecordingPermission = ScreenCapture.shared.hasPermission()
+    }
+    
+    /// Calculate normalized turn (0.0 to 1.0) across the entire closing motion
     public func normalizedTurn(for angle: Double, isLidClosing: Bool) -> Double {
         if isTestModeActive {
             return min(1.0, max(0.0, testTurnValue))
         }
         
-        // User requirement:
-        // "when user is using macbook do nothing. only when macbook is closed this animation should trigger. macbook opening leave it for now"
-        // If angle is above the start tilt threshold (user is using Mac): do nothing (turn = 0.0)
+        // User is using MacBook normally: do nothing
         if angle >= startTiltAngle {
             return 0.0
         }
         
-        // If the lid is opening, do nothing (leave opening for now)
+        // If opening or not closing: do nothing
         if !isLidClosing {
             return 0.0
         }
         
-        // When lid is closing and below startTiltAngle, compute turn:
         if angle <= endTiltAngle {
             return 1.0
         }
         
         let range = startTiltAngle - endTiltAngle
         guard range > 0.001 else { return 0.0 }
-        let progress = (startTiltAngle - angle) / range
-        return min(1.0, max(0.0, progress))
+        
+        let rawProgress = (startTiltAngle - angle) / range
+        return min(1.0, max(0.0, rawProgress))
     }
 }

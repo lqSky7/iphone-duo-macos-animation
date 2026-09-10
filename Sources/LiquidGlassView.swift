@@ -6,39 +6,47 @@ public struct LiquidGlassControlPanel: View {
     public init() {}
     
     public var body: some View {
-        VStack(spacing: 20) {
-            // Header with Sensor Status using .glassEffect
+        VStack(spacing: 16) {
+            // Header with Sensor Status
             headerSection
-                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16))
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 14))
             
-            // Customization Options
+            // Screen Recording Permission Banner
+            permissionSection
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12))
+            
+            // Customization Options ScrollView
             ScrollView {
-                VStack(spacing: 16) {
-                    // Tilt Trigger Settings (when to start animation based on tilt)
+                VStack(spacing: 14) {
+                    // Tilt Trigger Thresholds (Configured for full closing arc)
                     tiltSection
-                        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 14))
+                        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12))
                     
                     // Animation & Physics Controls
                     animationSection
-                        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 14))
+                        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12))
                     
                     // Image Source Controls
                     imageSourceSection
-                        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 14))
+                        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12))
                     
                     // Interactive Test Slider
                     interactiveTestSection
-                        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 14))
+                        .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 12))
                 }
-                .padding(.horizontal, 4)
+                .padding(.horizontal, 2)
             }
             
             // Footer Action Bar
             footerSection
         }
         .padding(20)
-        .frame(width: 480, height: 640)
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 20))
+        .frame(width: 480, height: 680)
+        // Clean, solid macOS window background (NOT glass, for crisp contrast and readability)
+        .background(Color(nsColor: .windowBackgroundColor))
+        .onAppear {
+            settings.refreshPermissions()
+        }
     }
     
     // MARK: - Header
@@ -46,7 +54,7 @@ public struct LiquidGlassControlPanel: View {
         HStack(spacing: 16) {
             ZStack {
                 Circle()
-                    .frame(width: 52, height: 52)
+                    .frame(width: 50, height: 50)
                     .glassEffect(.clear, in: Circle())
                 
                 Image(systemName: settings.isSensorConnected ? "laptopcomputer" : "laptopcomputer.trianglebadge.exclamationmark")
@@ -64,7 +72,7 @@ public struct LiquidGlassControlPanel: View {
                         .fill(settings.isSensorConnected ? Color.green : Color.red)
                         .frame(width: 8, height: 8)
                     
-                    Text(settings.isSensorConnected ? "Sensor Active: \(Int(settings.currentLidAngle))°" : "Sensor Disconnected")
+                    Text(settings.isSensorConnected ? "Sensor Connected: \(Int(settings.currentLidAngle))°" : "Sensor Disconnected")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -74,26 +82,60 @@ public struct LiquidGlassControlPanel: View {
             
             VStack(alignment: .trailing, spacing: 2) {
                 Text("\(Int(settings.currentLidAngle))°")
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .font(.system(size: 26, weight: .bold, design: .rounded))
                 Text(angleStatusDescription)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(16)
+        .padding(14)
     }
     
     private var angleStatusDescription: String {
         if settings.currentLidAngle >= settings.startTiltAngle {
             return "Using Mac (Idle)"
         } else if settings.currentLidAngle <= settings.endTiltAngle {
-            return "Lid Closed"
+            return "Lid Closed (Dark)"
         } else if settings.isClosing {
             let pct = Int(settings.normalizedTurn(for: settings.currentLidAngle, isLidClosing: true) * 100)
             return "Closing (\(pct)%)"
         } else {
-            return "Opening / Idle"
+            return "Opening (Idle)"
         }
+    }
+    
+    // MARK: - Screen Recording Permission Section
+    private var permissionSection: some View {
+        HStack(spacing: 12) {
+            Image(systemName: settings.hasScreenRecordingPermission ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                .foregroundStyle(settings.hasScreenRecordingPermission ? Color.green : Color.orange)
+                .font(.system(size: 20))
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(settings.hasScreenRecordingPermission ? "Screen Recording Permission Active" : "Screen Recording Permission Required")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                Text(settings.hasScreenRecordingPermission ? "Live screen capture is fully enabled." : "Required to capture and fold open windows. Otherwise wallpaper is used.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            
+            Spacer()
+            
+            if !settings.hasScreenRecordingPermission {
+                Button("Grant Access") {
+                    if !ScreenCapture.shared.requestPermission() {
+                        ScreenCapture.shared.openSettings()
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        settings.refreshPermissions()
+                    }
+                }
+                .buttonStyle(.glassProminent)
+                .controlSize(.small)
+            }
+        }
+        .padding(12)
     }
     
     // MARK: - Tilt Triggers (Start & End tilt angles)
@@ -113,8 +155,8 @@ public struct LiquidGlassControlPanel: View {
                         .fontWeight(.bold)
                         .monospacedDigit()
                 }
-                Slider(value: $settings.startTiltAngle, in: 60...130, step: 1)
-                Text("While using your Mac (angle > \(Int(settings.startTiltAngle))°), app does nothing. Animation triggers when closing below this angle.")
+                Slider(value: $settings.startTiltAngle, in: 40...120, step: 1)
+                Text("Normal usage remains completely idle above \(Int(settings.startTiltAngle))°. Animation triggers when closing below this angle.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
@@ -123,7 +165,7 @@ public struct LiquidGlassControlPanel: View {
             
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Text("Fully Folded (Void) At:")
+                    Text("Fully Folded (Dark Void) At:")
                         .font(.subheadline)
                     Spacer()
                     Text("\(Int(settings.endTiltAngle))°")
@@ -131,13 +173,13 @@ public struct LiquidGlassControlPanel: View {
                         .fontWeight(.bold)
                         .monospacedDigit()
                 }
-                Slider(value: $settings.endTiltAngle, in: 5...45, step: 1)
-                Text("Screen becomes completely folded up-to-down and dark at this angle.")
+                Slider(value: $settings.endTiltAngle, in: 0...20, step: 1)
+                Text("Animation progresses through the closing arc and reaches complete dark fold at \(Int(settings.endTiltAngle))°.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(16)
+        .padding(14)
     }
     
     // MARK: - Animation & Physics Options
@@ -158,9 +200,6 @@ public struct LiquidGlassControlPanel: View {
                         .monospacedDigit()
                 }
                 Slider(value: $settings.followSpeed, in: 6...30, step: 1)
-                Text("Controls the exponential follow smoothing (from iPhone Duo app.js).")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
             }
             
             HStack(spacing: 16) {
@@ -176,7 +215,7 @@ public struct LiquidGlassControlPanel: View {
                 }
             }
         }
-        .padding(16)
+        .padding(14)
     }
     
     // MARK: - Image Source
@@ -207,7 +246,7 @@ public struct LiquidGlassControlPanel: View {
                 }
             }
         }
-        .padding(16)
+        .padding(14)
     }
     
     // MARK: - Interactive Test Slider
@@ -225,7 +264,7 @@ public struct LiquidGlassControlPanel: View {
             if settings.isTestModeActive {
                 VStack(spacing: 6) {
                     HStack {
-                        Text("Fold Turn (Up to Down):")
+                        Text("Fold Turn (0% to 100%):")
                             .font(.caption)
                         Spacer()
                         Text("\(Int(settings.testTurnValue * 100))%")
@@ -237,20 +276,20 @@ public struct LiquidGlassControlPanel: View {
                 }
                 .transition(.opacity)
             } else {
-                Text("Enable to preview the up-to-down closing animation live on your screen without moving the lid.")
+                Text("Enable to preview the up-to-down closing animation smoothly across your screen.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(16)
+        .padding(14)
     }
     
     // MARK: - Footer
     private var footerSection: some View {
         HStack {
             Button("Reset Defaults") {
-                settings.startTiltAngle = 105.0
-                settings.endTiltAngle = 15.0
+                settings.startTiltAngle = 80.0
+                settings.endTiltAngle = 3.0
                 settings.followSpeed = 16.0
                 settings.imageSourceMode = .liveCapture
                 settings.blurStrength = 1.0
