@@ -32,8 +32,13 @@ public final class AppSettings: ObservableObject {
     private let kBlurStrength = "duo_blurStrength"
     private let kReflectionIntensity = "duo_reflectionIntensity"
     private let kShowAngleInMenuBar = "duo_showAngleInMenuBar"
+    private let kHasCompletedOnboarding = "mactilt_hasCompletedOnboarding"
     
     // MARK: - Customizable Animation Options
+    @Published public var hasCompletedOnboarding: Bool {
+        didSet { UserDefaults.standard.set(hasCompletedOnboarding, forKey: kHasCompletedOnboarding) }
+    }
+    
     @Published public var startTiltAngle: Double {
         didSet { UserDefaults.standard.set(startTiltAngle, forKey: kStartTiltAngle) }
     }
@@ -77,11 +82,14 @@ public final class AppSettings: ObservableObject {
     @Published public var isClosing: Bool = false
     @Published public var sensorStatusMessage: String = "Initializing sensor..."
     @Published public var hasScreenRecordingPermission: Bool = false
+    @Published public var lastCaptureDate: Date? = nil
+    @Published public var isScreenCaptureDormant: Bool = true
     
     private init() {
         let defaults = UserDefaults.standard
         
         // Defaults
+        self.hasCompletedOnboarding = defaults.bool(forKey: kHasCompletedOnboarding)
         self.startTiltAngle = defaults.object(forKey: kStartTiltAngle) != nil ? defaults.double(forKey: kStartTiltAngle) : 80.0
         self.endTiltAngle = defaults.object(forKey: kEndTiltAngle) != nil ? defaults.double(forKey: kEndTiltAngle) : 3.0
         self.followSpeed = defaults.object(forKey: kFollowSpeed) != nil ? defaults.double(forKey: kFollowSpeed) : 16.0

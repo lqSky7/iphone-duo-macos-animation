@@ -17,9 +17,13 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         sensor.start()
         
-        // Open the Liquid Glass control panel on startup so the user sees their controls immediately
+        // On first launch, open the Apple HCI Onboarding window; otherwise open the control panel
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            MenuBarController.shared.openControlPanel()
+            if !AppSettings.shared.hasCompletedOnboarding {
+                MenuBarController.shared.openOnboardingWindow()
+            } else {
+                MenuBarController.shared.openControlPanel()
+            }
         }
     }
     

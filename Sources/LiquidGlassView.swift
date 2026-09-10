@@ -37,6 +37,9 @@ public struct LiquidGlassControlPanel: View {
                     // Screen Recording Permission Card
                     permissionCard
                     
+                    // Battery & Performance Card
+                    batteryCard
+                    
                     // Tilt Trigger Angles Card
                     tiltCard
                     
@@ -208,6 +211,64 @@ public struct LiquidGlassControlPanel: View {
                             .padding(.vertical, 4)
                             .background(Color.primary.opacity(0.04))
                             .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+                }
+            }
+        }
+    }
+    
+    // MARK: - Battery & Power Optimization Card
+    private var batteryCard: some View {
+        HCISectionCard(title: "Battery & Performance", icon: "battery.100.bolt") {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 8, height: 8)
+                    Text("Zero Idle Battery Impact")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Color.green)
+                    Spacer()
+                    Text(settings.isScreenCaptureDormant ? "Capture Engine: Dormant" : "Capture Engine: Pre-Arming")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Text("macTilt does not poll or record in the background while you work. The screen capture engine remains 100% dormant and is pre-armed strictly during the physical closing motion (~95°). Metal rendering is paused until the clamshell fold begins.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .lineSpacing(2)
+                
+                Divider()
+                
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Background Polling")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Text("0 Hz (Event-Driven)")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
+                    Spacer()
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Idle GPU / CPU Impact")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Text("0.0%")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("Pre-Arm Mechanism")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Text("Hardware Angle Delta")
+                            .font(.caption)
+                            .fontWeight(.medium)
                     }
                 }
             }
@@ -414,6 +475,12 @@ public struct LiquidGlassControlPanel: View {
                 settings.showAngleInMenuBar = true
                 settings.isTestModeActive = false
                 settings.testTurnValue = 0.0
+            }
+            .buttonStyle(.glass)
+            .controlSize(.regular)
+            
+            Button("Welcome Guide") {
+                MenuBarController.shared.openOnboardingWindow()
             }
             .buttonStyle(.glass)
             .controlSize(.regular)

@@ -7,6 +7,7 @@ public final class MenuBarController: NSObject {
     
     private var statusItem: NSStatusItem?
     private var controlPanelWindow: NSWindow?
+    private var onboardingWindow: NSWindow?
     private var angleMenuItem: NSMenuItem?
     private var lastAngle: Double = 120.0
     private var lastIsConnected: Bool = false
@@ -40,6 +41,10 @@ public final class MenuBarController: NSObject {
         let openSettings = NSMenuItem(title: "Control Panel & Settings...", action: #selector(openControlPanel), keyEquivalent: ",")
         openSettings.target = self
         menu.addItem(openSettings)
+        
+        let welcomeItem = NSMenuItem(title: "Welcome Guide & Permissions...", action: #selector(openOnboardingWindow), keyEquivalent: "")
+        welcomeItem.target = self
+        menu.addItem(welcomeItem)
         
         let testToggle = NSMenuItem(title: "Toggle Test Preview Slider", action: #selector(toggleTestMode), keyEquivalent: "t")
         testToggle.target = self
@@ -114,6 +119,37 @@ public final class MenuBarController: NSObject {
         win.isReleasedWhenClosed = false
         
         self.controlPanelWindow = win
+        win.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+    
+    @objc public func openOnboardingWindow() {
+        if let existing = onboardingWindow {
+            existing.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+        
+        let win = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 620),
+            styleMask: [.titled, .closable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        win.center()
+        win.titlebarAppearsTransparent = true
+        win.titleVisibility = .hidden
+        win.isMovableByWindowBackground = true
+        
+        let onboardingView = OnboardingView { [weak self, weak win] in
+            win?.close()
+            self?.openControlPanel()
+        }
+        
+        win.contentViewController = NSHostingController(rootView: onboardingView)
+        win.isReleasedWhenClosed = false
+        
+        self.onboardingWindow = win
         win.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }

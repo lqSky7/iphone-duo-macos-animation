@@ -12,6 +12,28 @@ public final class OverlayWindowController: NSObject {
     public override init() {
         super.init()
         setupWindow()
+        setupSleepObservers()
+        
+        // Connect intelligent hardware pre-arming
+        LidSensor.shared.onPreArmCapture = { [weak self] in
+            self?.captureScreenAsync()
+        }
+    }
+    
+    private func setupSleepObservers() {
+        let ws = NSWorkspace.shared.notificationCenter
+        ws.addObserver(forName: NSWorkspace.screensDidSleepNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.handleSleep()
+        }
+        ws.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.handleSleep()
+        }
+    }
+    
+    private func handleSleep() {
+        metalView?.isPaused = true
+        window?.alphaValue = 0.0
+        AppSettings.shared.isScreenCaptureDormant = true
     }
     
     private func setupWindow() {
@@ -39,11 +61,13 @@ public final class OverlayWindowController: NSObject {
         self.window = win
         self.metalView = mtkView
         
-        // Initial image load in background
+        // One-time initial image load in background during app launch
         Task {
             if let img = await ScreenCapture.shared.fetchImage() {
                 await MainActor.run {
                     self.metalView?.updateImage(img)
+                    AppSettings.shared.lastCaptureDate = Date()
+                    AppSettings.shared.isScreenCaptureDormant = true
                 }
             }
         }
@@ -58,15 +82,17 @@ public final class OverlayWindowController: NSObject {
         if turn > 0.0001 {
             if wasZeroTurn {
                 wasZeroTurn = false
-                // Trigger fresh screen capture on initial closing tilt
-                captureScreenAsync()
+                // If pre-arm hasn't finished or was skipped, trigger emergency snapshot
+                if AppSettings.shared.imageSourceMode == .liveCapture {
+                    captureScreenAsync()
+                }
             }
             
             mv.isPaused = false
             win.alphaValue = 1.0
             win.orderFrontRegardless()
         } else {
-            // When user is using MacBook (or opening): do nothing, keep completely invisible
+            // When user is using MacBook (or opening): do nothing, keep completely invisible and idle
             wasZeroTurn = true
             win.alphaValue = 0.0
             mv.isPaused = true
@@ -76,14 +102,21 @@ public final class OverlayWindowController: NSObject {
     public func captureScreenAsync() {
         guard !isCapturing else { return }
         isCapturing = true
+        AppSettings.shared.isScreenCaptureDormant = false
+        
         Task {
             if let image = await ScreenCapture.shared.fetchImage() {
                 await MainActor.run {
                     self.metalView?.updateImage(image)
                     self.isCapturing = false
+                    AppSettings.shared.lastCaptureDate = Date()
+                    AppSettings.shared.isScreenCaptureDormant = true
                 }
             } else {
-                self.isCapturing = false
+                await MainActor.run {
+                    self.isCapturing = false
+                    AppSettings.shared.isScreenCaptureDormant = true
+                }
             }
         }
     }
