@@ -426,6 +426,12 @@ public struct LiquidGlassControlPanel: View {
                     
                     Toggle("", isOn: $settings.isTestModeActive)
                         .labelsHidden()
+                        .onChange(of: settings.isTestModeActive) { _, newValue in
+                            if !newValue {
+                                // Immediately clear turn value so the overlay hides at once
+                                settings.testTurnValue = 0.0
+                            }
+                        }
                 }
                 
                 if settings.isTestModeActive {
