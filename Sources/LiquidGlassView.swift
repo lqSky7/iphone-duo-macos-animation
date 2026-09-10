@@ -109,34 +109,81 @@ public struct LiquidGlassControlPanel: View {
     }
     
     // MARK: - Screen Recording Permission Section
+    @State private var copiedResetCommand: Bool = false
+    private let resetCommand = "tccutil reset ScreenCapture com.lqsky7.iphoneduo"
+    
     private var permissionSection: some View {
-        HStack(spacing: 12) {
-            Image(systemName: settings.hasScreenRecordingPermission ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
-                .foregroundStyle(settings.hasScreenRecordingPermission ? Color.green : Color.orange)
-                .font(.system(size: 20))
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(settings.hasScreenRecordingPermission ? "Screen Recording Permission Active" : "Screen Recording Permission Required")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                Text(settings.hasScreenRecordingPermission ? "Live screen capture is fully enabled." : "Required to capture and fold open windows. Otherwise wallpaper is used.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                Image(systemName: settings.hasScreenRecordingPermission ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                    .foregroundStyle(settings.hasScreenRecordingPermission ? Color.green : Color.orange)
+                    .font(.system(size: 20))
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(settings.hasScreenRecordingPermission ? "Screen Recording Permission Active" : "Screen Recording Permission Required")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    Text(settings.hasScreenRecordingPermission ? "Live screen capture is active." : "Required to capture and fold open windows.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Spacer()
+                
+                if !settings.hasScreenRecordingPermission {
+                    Button("Grant Access") {
+                        if !ScreenCapture.shared.requestPermission() {
+                            ScreenCapture.shared.openSettings()
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            settings.refreshPermissions()
+                        }
+                    }
+                    .buttonStyle(.glassProminent)
+                    .controlSize(.small)
+                }
             }
             
-            Spacer()
+            Divider()
             
-            if !settings.hasScreenRecordingPermission {
-                Button("Grant Access") {
-                    if !ScreenCapture.shared.requestPermission() {
-                        ScreenCapture.shared.openSettings()
+            // TCC Cache Reset Helper
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Permission not reflecting?")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.secondary)
+                    
+                    Spacer()
+                    
+                    Button {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(resetCommand, forType: .string)
+                        copiedResetCommand = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                            copiedResetCommand = false
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: copiedResetCommand ? "checkmark" : "doc.on.doc")
+                            Text(copiedResetCommand ? "Copied to Clipboard!" : "Copy Reset Command")
+                        }
                     }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                        settings.refreshPermissions()
-                    }
+                    .buttonStyle(.glass)
+                    .controlSize(.small)
                 }
-                .buttonStyle(.glassProminent)
-                .controlSize(.small)
+                
+                Text(resetCommand)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.black.opacity(0.15))
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                
+                Text("Run this in Terminal to clear macOS TCC cache if permission is turned on but not detecting.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
         }
         .padding(12)
