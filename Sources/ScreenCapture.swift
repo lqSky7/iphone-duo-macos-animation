@@ -8,12 +8,44 @@ public final class ScreenCapture {
     
     private init() {}
     
-    /// Check if the app currently has screen recording permission
+    /// Fast synchronous preflight
     public func hasPermission() -> Bool {
         return CGPreflightScreenCaptureAccess()
     }
     
+    /// Comprehensive async verification using both CoreGraphics and ScreenCaptureKit
+    public func verifyPermissionAsync() async -> Bool {
+        if CGPreflightScreenCaptureAccess() {
+            return true
+        }
+        
+        // Probe via ScreenCaptureKit: if we can list external windows, permission is active
+        do {
+            let content = try await SCShareableContent.current
+            let currentPID = NSRunningApplication.current.processIdentifier
+            let otherWindows = content.windows.filter { $0.owningApplication?.processID != currentPID }
+            if !otherWindows.isEmpty {
+                return true
+            }
+            if !content.displays.isEmpty {
+                // Test capturing a small 1x1 test frame
+                let filter = SCContentFilter(display: content.displays[0], excludingWindows: [])
+                let config = SCStreamConfiguration()
+                config.width = 2
+                config.height = 2
+                if let _ = try? await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config) {
+                    return true
+                }
+            }
+        } catch {
+            return false
+        }
+        
+        return false
+    }
+    
     /// Request screen recording permission from macOS
+    @discardableResult
     public func requestPermission() -> Bool {
         return CGRequestScreenCaptureAccess()
     }
@@ -25,13 +57,26 @@ public final class ScreenCapture {
         }
     }
     
+    /// Relaunch application to pick up updated TCC permissions
+    public func relaunchApp() {
+        let appUrl = Bundle.main.bundleURL
+        let config = NSWorkspace.OpenConfiguration()
+        config.createsNewApplicationInstance = true
+        
+        NSWorkspace.shared.openApplication(at: appUrl, configuration: config) { _, _ in
+            DispatchQueue.main.async {
+                NSApp.terminate(nil)
+            }
+        }
+    }
+    
     /// Capture the screen or load appropriate image based on settings
     public func fetchImage() async -> CGImage? {
         let settings = AppSettings.shared
         
         switch settings.imageSourceMode {
         case .liveCapture:
-            if hasPermission(), let img = await captureLiveScreen() {
+            if await verifyPermissionAsync(), let img = await captureLiveScreen() {
                 return img
             }
             // Fallback if permission not granted or capture failed
@@ -55,8 +100,6 @@ public final class ScreenCapture {
     
     /// Live display capture using ScreenCaptureKit
     public func captureLiveScreen() async -> CGImage? {
-        guard hasPermission() else { return nil }
-        
         do {
             let content = try await SCShareableContent.current
             guard let display = content.displays.first else { return nil }

@@ -95,11 +95,30 @@ public final class AppSettings: ObservableObject {
         
         self.showAngleInMenuBar = defaults.object(forKey: kShowAngleInMenuBar) != nil ? defaults.bool(forKey: kShowAngleInMenuBar) : true
         
+        // Listen for app becoming active to re-check permissions immediately
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.refreshPermissions()
+        }
+        
         refreshPermissions()
     }
     
     public func refreshPermissions() {
-        self.hasScreenRecordingPermission = ScreenCapture.shared.hasPermission()
+        // Fast synchronous check
+        let syncStatus = ScreenCapture.shared.hasPermission()
+        self.hasScreenRecordingPermission = syncStatus
+        
+        // Asynchronous active probe via ScreenCaptureKit
+        Task {
+            let verified = await ScreenCapture.shared.verifyPermissionAsync()
+            await MainActor.run {
+                self.hasScreenRecordingPermission = verified
+            }
+        }
     }
     
     /// Calculate normalized turn (0.0 to 1.0) across the entire closing motion

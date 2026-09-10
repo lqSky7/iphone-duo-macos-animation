@@ -107,7 +107,12 @@ fi
 
 # 6. Codesign App Bundle
 echo "▶ Codesigning Application Bundle..."
-codesign --force --deep --sign - "$APP_BUNDLE"
+SIGNING_IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null | grep "Apple Development" | head -n 1 | awk -F '"' '{print $2}')
+if [ -z "$SIGNING_IDENTITY" ]; then
+    SIGNING_IDENTITY="-"
+fi
+echo "▶ Using Signing Identity: $SIGNING_IDENTITY"
+codesign --force --deep --sign "$SIGNING_IDENTITY" "$APP_BUNDLE"
 
 # 7. Install to /Applications
 INSTALL_TARGET="/Applications/iPhoneDuo.app"

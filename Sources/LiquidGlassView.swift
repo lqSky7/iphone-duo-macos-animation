@@ -131,22 +131,42 @@ public struct LiquidGlassControlPanel: View {
                 Spacer()
                 
                 if !settings.hasScreenRecordingPermission {
-                    Button("Grant Access") {
-                        if !ScreenCapture.shared.requestPermission() {
-                            ScreenCapture.shared.openSettings()
-                        }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    HStack(spacing: 8) {
+                        Button {
                             settings.refreshPermissions()
+                        } label: {
+                            Image(systemName: "arrow.clockwise")
                         }
+                        .buttonStyle(.glass)
+                        .controlSize(.small)
+                        .help("Refresh permission status")
+                        
+                        Button("Grant Access") {
+                            if !ScreenCapture.shared.requestPermission() {
+                                ScreenCapture.shared.openSettings()
+                            }
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                                settings.refreshPermissions()
+                            }
+                        }
+                        .buttonStyle(.glassProminent)
+                        .controlSize(.small)
                     }
-                    .buttonStyle(.glassProminent)
+                } else {
+                    Button {
+                        settings.refreshPermissions()
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .buttonStyle(.glass)
                     .controlSize(.small)
+                    .help("Refresh permission status")
                 }
             }
             
             Divider()
             
-            // TCC Cache Reset Helper
+            // TCC Cache Reset and Relaunch Helper
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text("Permission not reflecting?")
@@ -155,6 +175,12 @@ public struct LiquidGlassControlPanel: View {
                         .foregroundStyle(.secondary)
                     
                     Spacer()
+                    
+                    Button("Relaunch App") {
+                        ScreenCapture.shared.relaunchApp()
+                    }
+                    .buttonStyle(.glass)
+                    .controlSize(.small)
                     
                     Button {
                         NSPasteboard.general.clearContents()
@@ -166,7 +192,7 @@ public struct LiquidGlassControlPanel: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: copiedResetCommand ? "checkmark" : "doc.on.doc")
-                            Text(copiedResetCommand ? "Copied to Clipboard!" : "Copy Reset Command")
+                            Text(copiedResetCommand ? "Copied!" : "Copy Reset Command")
                         }
                     }
                     .buttonStyle(.glass)
@@ -181,7 +207,7 @@ public struct LiquidGlassControlPanel: View {
                     .background(Color.black.opacity(0.15))
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                 
-                Text("Run this in Terminal to clear macOS TCC cache if permission is turned on but not detecting.")
+                Text("macOS requires an app relaunch after granting access in System Settings. If still not detecting, copy and run the reset command in Terminal.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
