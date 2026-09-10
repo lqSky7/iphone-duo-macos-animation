@@ -24,14 +24,14 @@ public final class AppSettings: ObservableObject {
     public static let shared = AppSettings()
     
     // MARK: - Persistent User Defaults Keys
-    private let kStartTiltAngle = "duo_startTiltAngle"
-    private let kEndTiltAngle = "duo_endTiltAngle"
-    private let kFollowSpeed = "duo_followSpeed"
-    private let kImageSourceMode = "duo_imageSourceMode"
-    private let kCustomImagePath = "duo_customImagePath"
-    private let kBlurStrength = "duo_blurStrength"
-    private let kReflectionIntensity = "duo_reflectionIntensity"
-    private let kShowAngleInMenuBar = "duo_showAngleInMenuBar"
+    private let kStartTiltAngle = "mactilt_startTiltAngle"
+    private let kEndTiltAngle = "mactilt_endTiltAngle"
+    private let kFollowSpeed = "mactilt_followSpeed"
+    private let kImageSourceMode = "mactilt_imageSourceMode"
+    private let kCustomImagePath = "mactilt_customImagePath"
+    private let kBlurStrength = "mactilt_blurStrength"
+    private let kReflectionIntensity = "mactilt_reflectionIntensity"
+    private let kShowAngleInMenuBar = "mactilt_showAngleInMenuBar"
     private let kHasCompletedOnboarding = "mactilt_hasCompletedOnboarding"
     
     // MARK: - Customizable Animation Options
@@ -88,18 +88,18 @@ public final class AppSettings: ObservableObject {
     private init() {
         let defaults = UserDefaults.standard
         
-        // Defaults
+        // Defaults matching User Preferences
         self.hasCompletedOnboarding = defaults.bool(forKey: kHasCompletedOnboarding)
-        self.startTiltAngle = defaults.object(forKey: kStartTiltAngle) != nil ? defaults.double(forKey: kStartTiltAngle) : 80.0
+        self.startTiltAngle = defaults.object(forKey: kStartTiltAngle) != nil ? defaults.double(forKey: kStartTiltAngle) : 115.0
         self.endTiltAngle = defaults.object(forKey: kEndTiltAngle) != nil ? defaults.double(forKey: kEndTiltAngle) : 3.0
         self.followSpeed = defaults.object(forKey: kFollowSpeed) != nil ? defaults.double(forKey: kFollowSpeed) : 16.0
         
         let savedSource = defaults.integer(forKey: kImageSourceMode)
-        self.imageSourceMode = ImageSourceMode(rawValue: savedSource) ?? .liveCapture
+        self.imageSourceMode = defaults.object(forKey: kImageSourceMode) != nil ? (ImageSourceMode(rawValue: savedSource) ?? .liveCapture) : .liveCapture
         
         self.customImagePath = defaults.string(forKey: kCustomImagePath) ?? ""
-        self.blurStrength = defaults.object(forKey: kBlurStrength) != nil ? defaults.double(forKey: kBlurStrength) : 1.0
-        self.reflectionIntensity = defaults.object(forKey: kReflectionIntensity) != nil ? defaults.double(forKey: kReflectionIntensity) : 1.0
+        self.blurStrength = defaults.object(forKey: kBlurStrength) != nil ? defaults.double(forKey: kBlurStrength) : 0.5
+        self.reflectionIntensity = defaults.object(forKey: kReflectionIntensity) != nil ? defaults.double(forKey: kReflectionIntensity) : 0.0
         
         self.showAngleInMenuBar = defaults.object(forKey: kShowAngleInMenuBar) != nil ? defaults.bool(forKey: kShowAngleInMenuBar) : true
         

@@ -453,12 +453,12 @@ public struct LiquidGlassControlPanel: View {
     private var footerBar: some View {
         HStack {
             Button("Reset to Defaults") {
-                settings.startTiltAngle = 80.0
+                settings.startTiltAngle = 115.0
                 settings.endTiltAngle = 3.0
                 settings.followSpeed = 16.0
                 settings.imageSourceMode = .liveCapture
-                settings.blurStrength = 1.0
-                settings.reflectionIntensity = 1.0
+                settings.blurStrength = 0.5
+                settings.reflectionIntensity = 0.0
                 settings.showAngleInMenuBar = true
                 settings.isTestModeActive = false
                 settings.testTurnValue = 0.0

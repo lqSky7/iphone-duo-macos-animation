@@ -26,6 +26,7 @@ public final class LidSensor {
     private var isActivelyClosing: Bool = false
     private var hasPreArmedInThisMotion: Bool = false
     private var lastPreArmTime: CFTimeInterval = 0
+    private var stationaryFrames: Int = 0
     
     private init() {
         setupManager()
@@ -126,31 +127,34 @@ public final class LidSensor {
                 // Track direction of movement and velocity
                 let delta = angle - previousRawAngle
                 let isMovingDownward = delta < -0.4
-                let isMovingUpward = delta > 0.8
+                let isMovingUpward = delta > 0.6
                 
                 if isMovingDownward {
                     isActivelyClosing = true
+                    stationaryFrames = 0
                 } else if isMovingUpward {
                     isActivelyClosing = false
                     hasPreArmedInThisMotion = false
-                }
-                
-                // If lid is safely open, reset pre-arm latch and mark capture engine dormant
-                if angle > (settings.startTiltAngle + 5.0) {
-                    hasPreArmedInThisMotion = false
-                    settings.isScreenCaptureDormant = true
-                    if !isMovingDownward {
+                    stationaryFrames = 0
+                } else {
+                    stationaryFrames += 1
+                    if stationaryFrames > 12 { // ~200ms of no downward movement
                         isActivelyClosing = false
                     }
                 }
                 
+                // If lid is safely open, reset pre-arm latch and mark capture engine dormant
+                if angle >= settings.startTiltAngle || (!isActivelyClosing && angle >= settings.startTiltAngle - 10.0) {
+                    hasPreArmedInThisMotion = false
+                    settings.isScreenCaptureDormant = true
+                }
+                
                 // Hardware Pre-Arming Capture Zone:
-                // Triggers asynchronously during closing motion (e.g. 80° - 100°)
-                // Gives ScreenCaptureKit 150-250ms to grab texture before fold begins at startTiltAngle
+                // Pre-arms during downward motion right around startTiltAngle
                 let nowTime = CACurrentMediaTime()
-                let preArmThreshold = settings.startTiltAngle + 20.0
-                if angle <= preArmThreshold && angle >= (settings.startTiltAngle - 2.0) {
-                    if isActivelyClosing && !hasPreArmedInThisMotion && (nowTime - lastPreArmTime > 2.5) {
+                let preArmThreshold = min(135.0, settings.startTiltAngle + 15.0)
+                if angle <= preArmThreshold && angle >= (settings.startTiltAngle - 5.0) {
+                    if isActivelyClosing && !hasPreArmedInThisMotion && (nowTime - lastPreArmTime > 2.0) {
                         hasPreArmedInThisMotion = true
                         lastPreArmTime = nowTime
                         settings.isScreenCaptureDormant = false
@@ -158,8 +162,8 @@ public final class LidSensor {
                     }
                 }
                 
-                // Safety fallback for ultra-fast slams crossing startTiltAngle directly
-                if angle < settings.startTiltAngle && isActivelyClosing && !hasPreArmedInThisMotion && (nowTime - lastPreArmTime > 2.5) {
+                // Safety fallback for fast slams or starting closure below startTiltAngle
+                if angle < settings.startTiltAngle && isActivelyClosing && !hasPreArmedInThisMotion && (nowTime - lastPreArmTime > 2.0) {
                     hasPreArmedInThisMotion = true
                     lastPreArmTime = nowTime
                     settings.isScreenCaptureDormant = false
