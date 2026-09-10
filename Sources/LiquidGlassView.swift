@@ -17,7 +17,7 @@ private let cardBorder = Color(nsColor: NSColor(name: nil, dynamicProvider: { ap
 public struct LiquidGlassControlPanel: View {
     @ObservedObject var settings: AppSettings = AppSettings.shared
     @State private var copiedResetCommand: Bool = false
-    private let resetCommand = "tccutil reset ScreenCapture com.lqsky7.iphoneduo"
+    private let resetCommand = "tccutil reset ScreenCapture com.lqsky7.mactilt"
     
     public init() {}
     
@@ -85,7 +85,7 @@ public struct LiquidGlassControlPanel: View {
             }
             
             VStack(alignment: .leading, spacing: 2) {
-                Text("iPhone Duo")
+                Text("macTilt")
                     .font(.title3)
                     .fontWeight(.bold)
                 

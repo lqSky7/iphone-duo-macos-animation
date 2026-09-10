@@ -1,8 +1,8 @@
-# iPhone Duo macOS Animation
+# macTilt
 
-The **iPhone Duo fold animation** for MacBooks driven by the physical lid angle sensor.
+The **macTilt** 3D clamshell fold animation for MacBooks driven by the physical lid angle sensor.
 
-> *"When the Duo opens or closes, the picture on its screen stays where it is in space while the hardware sweeps through it: the image frosts over and slips into black without ever changing its size."*
+> *"When the lid closes, the picture on its screen stays where it is in space while the hardware sweeps through it: the image frosts over and slips into black without ever changing its size."*
 
 Rather than rendering inside a separate window, **the entire macOS display follows the animation in 3D space as you close your MacBook lid**.
 
@@ -53,7 +53,7 @@ Every time `./build.sh` is executed:
 2. Compiles the Metal shaders into `default.metallib`.
 3. Compiles the Swift application.
 4. Codesigns the app bundle ad-hoc.
-5. Installs the new version directly to `/Applications/iPhoneDuo.app`.
+5. Installs the new version directly to `/Applications/macTilt.app`.
 
 ---
 
@@ -62,7 +62,7 @@ Every time `./build.sh` is executed:
 Open the installed application from `/Applications` or run:
 
 ```bash
-open /Applications/iPhoneDuo.app
+open /Applications/macTilt.app
 ```
 
 The menu bar icon will display your current lid status. The Liquid Glass control panel allows you to customize the tilt thresholds and test the animation live!

@@ -19,14 +19,14 @@ public final class MenuBarController: NSObject {
     private func setupStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = item.button {
-            button.image = NSImage(systemSymbolName: "laptopcomputer", accessibilityDescription: "iPhone Duo")
+            button.image = NSImage(systemSymbolName: "laptopcomputer", accessibilityDescription: "macTilt")
             button.imagePosition = .imageLeading
             button.title = ""
         }
         
         let menu = NSMenu()
         
-        let header = NSMenuItem(title: "iPhone Duo Clamshell Animation", action: nil, keyEquivalent: "")
+        let header = NSMenuItem(title: "macTilt Clamshell Animation", action: nil, keyEquivalent: "")
         header.isEnabled = false
         menu.addItem(header)
         
@@ -51,7 +51,7 @@ public final class MenuBarController: NSObject {
         
         menu.addItem(NSMenuItem.separator())
         
-        let quitItem = NSMenuItem(title: "Quit iPhone Duo", action: #selector(quitApp), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: "Quit macTilt", action: #selector(quitApp), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
         

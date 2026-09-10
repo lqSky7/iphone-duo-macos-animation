@@ -6,7 +6,7 @@ cd "$DIR"
 
 INFO_PLIST="$DIR/Info.plist"
 
-echo "=== iPhone Duo macOS Build & Install ==="
+echo "=== macTilt macOS Build & Install ==="
 
 # 1. Increment Build Number and Version Number
 if [ -f "$INFO_PLIST" ]; then
@@ -34,7 +34,7 @@ fi
 
 # 2. Prepare Build Directory
 BUILD_DIR="$DIR/build"
-APP_BUNDLE="$BUILD_DIR/iPhoneDuo.app"
+APP_BUNDLE="$BUILD_DIR/macTilt.app"
 CONTENTS_DIR="$APP_BUNDLE/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
@@ -52,7 +52,7 @@ cp "$DIR/Sources/FoldShaders.metal" "$RESOURCES_DIR/FoldShaders.metal"
 echo "▶ Compiling Swift Application..."
 swiftc -O \
     "$DIR"/Sources/*.swift \
-    -o "$MACOS_DIR/iPhoneDuo" \
+    -o "$MACOS_DIR/macTilt" \
     -framework AppKit \
     -framework SwiftUI \
     -framework Metal \
@@ -115,10 +115,11 @@ echo "▶ Using Signing Identity: $SIGNING_IDENTITY"
 codesign --force --deep --sign "$SIGNING_IDENTITY" "$APP_BUNDLE"
 
 # 7. Install to /Applications
-INSTALL_TARGET="/Applications/iPhoneDuo.app"
+INSTALL_TARGET="/Applications/macTilt.app"
 echo "▶ Installing to $INSTALL_TARGET..."
 
 # Kill running instance if exists
+pkill -x "macTilt" || true
 pkill -x "iPhoneDuo" || true
 sleep 0.5
 
@@ -126,10 +127,13 @@ sleep 0.5
 if [ -d "$INSTALL_TARGET" ]; then
     rm -rf "$INSTALL_TARGET"
 fi
+if [ -d "/Applications/iPhoneDuo.app" ]; then
+    rm -rf "/Applications/iPhoneDuo.app"
+fi
 
 cp -R "$APP_BUNDLE" "$INSTALL_TARGET"
 
 echo "=================================================="
-echo "✔ Successfully installed iPhone Duo v${NEW_VERSION} (Build ${NEW_BUILD})"
+echo "✔ Successfully installed macTilt v${NEW_VERSION} (Build ${NEW_BUILD})"
 echo "✔ Location: $INSTALL_TARGET"
 echo "=================================================="
