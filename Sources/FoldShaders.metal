@@ -1,7 +1,6 @@
 #include <metal_stdlib>
 using namespace metal;
 
-constant float BLUR = 0.0315;
 constant float MAX_TILT = 0.84106867; // acos(1.0 / 1.5)
 constant float3 DARK = float3(0.003, 0.004, 0.005);
 
@@ -37,15 +36,31 @@ vertex VertexOut foldVertex(uint vid [[vertex_id]]) {
     return out;
 }
 
-inline float3 sampleImage(texture2d<float> tex, sampler s, float2 uv, float sigma, float2 cover) {
+inline float3 sampleImageOriginalDuo(texture2d<float> tex, sampler s, float2 uv, float radius, float2 cover, float2 uiPixel) {
     float2 tuv = (uv - 0.5) * cover + 0.5;
-    float lod = max(0.0, log2(max(sigma, 1.0)));
-    float3 blurred = tex.sample(s, tuv, level(max(1.0, lod))).rgb;
-    if (sigma >= 2.0) {
-        return blurred;
+    
+    // When radius is near 0, return full-resolution sharp sample at level 0
+    if (radius <= 0.1) {
+        return tex.sample(s, tuv, level(0.0)).rgb;
     }
+    
+    float lod = log2(max(1.0, radius));
+    float3 color = float3(0.0);
+    
+    // Exact 5x5 binomial Gaussian kernel [1, 4, 6, 4, 1] / 256.0 from original source
+    for (int y = -2; y <= 2; y++) {
+        float wy = (y == 0) ? 6.0 : (abs(y) == 1 ? 4.0 : 1.0);
+        for (int x = -2; x <= 2; x++) {
+            float wx = (x == 0) ? 6.0 : (abs(x) == 1 ? 4.0 : 1.0);
+            float weight = (wx * wy) / 256.0;
+            float2 sampleUV = tuv + float2(float(x), float(y)) * uiPixel * radius;
+            color += tex.sample(s, clamp(sampleUV, 0.0, 1.0), level(lod)).rgb * weight;
+        }
+    }
+    
+    // Smooth blend from sharp level 0 to blurred as radius develops
     float3 sharp = tex.sample(s, tuv, level(0.0)).rgb;
-    return mix(sharp, blurred, smoothstep(0.0, 2.0, sigma));
+    return mix(sharp, color, smoothstep(0.0, 2.0, radius));
 }
 
 fragment float4 foldFragment(VertexOut in [[stage_in]],
@@ -53,15 +68,16 @@ fragment float4 foldFragment(VertexOut in [[stage_in]],
                              sampler s [[sampler(0)]],
                              constant Uniforms &u [[buffer(0)]]) {
     float turn = clamp(u.turn, 0.0, 1.0);
+    float2 uiPixel = 2.0 / max(float2(1.0), u.imageSize);
+    
     if (turn <= 0.00001) {
-        return float4(sampleImage(tex, s, in.uv, 0.0, u.cover), 1.0);
+        return float4(sampleImageOriginalDuo(tex, s, in.uv, 0.0, u.cover, uiPixel), 1.0);
     }
     
     // Up-to-Down Clamshell Fold: Hinge is at the bottom edge (in.uv.y = 1.0)
     float fromHinge = clamp(1.0 - in.uv.y, 0.0, 1.0);
     
     // Scale bend smoothly across the ENTIRE 0.0 -> 1.0 closing turn
-    // (Never clamps prematurely at 50%)
     float bend = turn * MAX_TILT;
     float cosine = cos(bend);
     float sine = sin(bend);
@@ -76,18 +92,17 @@ fragment float4 foldFragment(VertexOut in [[stage_in]],
     plane.y = 1.0 - fromHinge * cosine * perspective;
     plane.x = 0.5 + (in.uv.x - 0.5) * perspective;
     
-    // Defocus blur from mip chain: develops smoothly as turn progresses
-    float blurAngle = pow(turn, 0.7);
-    float blurSpread = pow(smoothstep(0.0, 0.85, fromHinge), 1.3);
-    float defocus = blurAngle * mix(0.15, 1.0, blurSpread);
-    float sigma = u.imageSize.y * BLUR * defocus * u.blurStrength;
+    // Defocus blur from original source: 56.0 * motion scaled by binomial 5x5 kernel
+    float blurSpread = pow(smoothstep(0.0, 0.85, fromHinge), 1.2);
+    float motion = smoothstep(0.0, 1.0, turn) * mix(0.20, 1.0, blurSpread);
+    float radius = 56.0 * motion * max(0.05, u.blurStrength);
     
     // Side margins softness
-    float softness = fwidth(in.uv.x) + 2.0 * sigma / max(1.0, u.imageSize.x);
+    float softness = fwidth(in.uv.x) + radius * 0.002;
     float mask = 1.0 - smoothstep(0.5 - softness, 0.5 + softness, abs(plane.x - 0.5));
     
-    // Sample texture
-    float3 color = sampleImage(tex, s, plane, sigma, u.cover);
+    // Sample texture using original 5x5 binomial Gaussian blur
+    float3 color = sampleImageOriginalDuo(tex, s, plane, radius, u.cover, uiPixel);
     
     // Glass refraction & reflection
     float glass = sine * pow(fromHinge, 1.5);

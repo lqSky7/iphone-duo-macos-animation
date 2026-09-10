@@ -108,11 +108,14 @@ public final class ScreenCapture {
             let currentAppPID = NSRunningApplication.current.processIdentifier
             let excludedWindows = content.windows.filter { $0.owningApplication?.processID == currentAppPID }
             
+            let scale = NSScreen.main?.backingScaleFactor ?? 2.0
             let filter = SCContentFilter(display: display, excludingWindows: excludedWindows)
             let config = SCStreamConfiguration()
-            config.width = display.width
-            config.height = display.height
+            config.width = Int(Double(display.width) * scale)
+            config.height = Int(Double(display.height) * scale)
             config.showsCursor = true
+            config.pixelFormat = kCVPixelFormatType_32BGRA
+            config.colorSpaceName = CGColorSpace.sRGB
             
             return try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: config)
         } catch {
