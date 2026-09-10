@@ -63,18 +63,46 @@ swiftc -O \
 
 # 5. Copy Resources & Plist
 cp "$INFO_PLIST" "$CONTENTS_DIR/Info.plist"
-if [ -f "$DIR/Resources/default.png" ]; then
-    cp "$DIR/Resources/default.png" "$RESOURCES_DIR/default.png"
+
+# Generate or copy AppIcon
+if [ ! -f "$DIR/Resources/AppIcon.icns" ] && [ -f "$DIR/Resources/AppIcon.png" ]; then
+    echo "▶ Generating AppIcon.icns from AppIcon.png..."
+    ICONSET="/tmp/AppIcon.iconset"
+    rm -rf "$ICONSET"
+    mkdir -p "$ICONSET"
+    sips -z 16 16     "$DIR/Resources/AppIcon.png" --out "$ICONSET/icon_16x16.png" >/dev/null 2>&1
+    sips -z 32 32     "$DIR/Resources/AppIcon.png" --out "$ICONSET/icon_16x16@2x.png" >/dev/null 2>&1
+    sips -z 32 32     "$DIR/Resources/AppIcon.png" --out "$ICONSET/icon_32x32.png" >/dev/null 2>&1
+    sips -z 64 64     "$DIR/Resources/AppIcon.png" --out "$ICONSET/icon_32x32@2x.png" >/dev/null 2>&1
+    sips -z 128 128   "$DIR/Resources/AppIcon.png" --out "$ICONSET/icon_128x128.png" >/dev/null 2>&1
+    sips -z 256 256   "$DIR/Resources/AppIcon.png" --out "$ICONSET/icon_128x128@2x.png" >/dev/null 2>&1
+    sips -z 256 256   "$DIR/Resources/AppIcon.png" --out "$ICONSET/icon_256x256.png" >/dev/null 2>&1
+    sips -z 512 512   "$DIR/Resources/AppIcon.png" --out "$ICONSET/icon_256x256@2x.png" >/dev/null 2>&1
+    sips -z 512 512   "$DIR/Resources/AppIcon.png" --out "$ICONSET/icon_512x512.png" >/dev/null 2>&1
+    sips -z 1024 1024 "$DIR/Resources/AppIcon.png" --out "$ICONSET/icon_512x512@2x.png" >/dev/null 2>&1
+    iconutil -c icns "$ICONSET" -o "$DIR/Resources/AppIcon.icns"
+    rm -rf "$ICONSET"
 fi
-if [ -f "$DIR/Resources/AppIcon.svg" ]; then
-    cp "$DIR/Resources/AppIcon.svg" "$RESOURCES_DIR/AppIcon.svg"
-fi
+
 if [ -f "$DIR/Resources/AppIcon.icns" ]; then
     cp "$DIR/Resources/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
     /usr/libexec/PlistBuddy -c "Set :CFBundleIconFile AppIcon" "$CONTENTS_DIR/Info.plist" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string AppIcon" "$CONTENTS_DIR/Info.plist"
-elif [ -f "$DIR/Resources/AppIcon.icon" ]; then
-    cp "$DIR/Resources/AppIcon.icon" "$RESOURCES_DIR/AppIcon.icns"
-    /usr/libexec/PlistBuddy -c "Set :CFBundleIconFile AppIcon" "$CONTENTS_DIR/Info.plist" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string AppIcon" "$CONTENTS_DIR/Info.plist"
+fi
+
+if [ -d "$DIR/Resources/Untitled.icon" ]; then
+    cp -R "$DIR/Resources/Untitled.icon" "$RESOURCES_DIR/Untitled.icon"
+elif [ -d "/Users/ca5/Desktop/Untitled.icon" ]; then
+    cp -R "/Users/ca5/Desktop/Untitled.icon" "$RESOURCES_DIR/Untitled.icon"
+fi
+
+if [ -f "$DIR/Resources/default.png" ]; then
+    cp "$DIR/Resources/default.png" "$RESOURCES_DIR/default.png"
+fi
+if [ -f "$DIR/Resources/AppIcon.png" ]; then
+    cp "$DIR/Resources/AppIcon.png" "$RESOURCES_DIR/AppIcon.png"
+fi
+if [ -f "$DIR/Resources/AppIcon.svg" ]; then
+    cp "$DIR/Resources/AppIcon.svg" "$RESOURCES_DIR/AppIcon.svg"
 fi
 
 # 6. Codesign App Bundle
