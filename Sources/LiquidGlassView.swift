@@ -17,6 +17,7 @@ private let cardBorder = Color(nsColor: NSColor(name: nil, dynamicProvider: { ap
 public struct LiquidGlassControlPanel: View {
     @ObservedObject var settings: AppSettings = AppSettings.shared
     @State private var copiedResetCommand: Bool = false
+    @State private var showingPermissionTroubleshooting: Bool = false
     private let resetCommand = "tccutil reset ScreenCapture com.lqsky7.mactilt"
     
     public init() {}
@@ -140,77 +141,85 @@ public struct LiquidGlassControlPanel: View {
     // MARK: - Screen Recording Permission Card
     private var permissionCard: some View {
         HCISectionCard(title: "Screen Recording Permission", icon: "video.badge.checkmark") {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 10) {
-                    Image(systemName: settings.hasScreenRecordingPermission ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                        .foregroundStyle(settings.hasScreenRecordingPermission ? Color.green : Color.orange)
-                        .font(.system(size: 16))
-                    
-                    Text(settings.hasScreenRecordingPermission ? "Permission Active: Open windows will fold in real time." : "Permission Required: Open windows cannot be captured.")
-                        .font(.subheadline)
-                        .foregroundStyle(settings.hasScreenRecordingPermission ? .primary : .secondary)
-                    
-                    Spacer()
+            HStack(spacing: 10) {
+                Image(systemName: settings.hasScreenRecordingPermission ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                    .foregroundStyle(settings.hasScreenRecordingPermission ? Color.green : Color.orange)
+                    .font(.system(size: 15))
+                
+                Text(settings.hasScreenRecordingPermission ? "Permission Active" : "Permission Required")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                
+                InfoButton("Screen Recording", content: "macTilt requires Screen Recording permission to freeze and fold your active desktop in 3D space as you close the lid. All processing is strictly on-device.")
+                
+                Spacer()
+                
+                Button {
+                    settings.refreshPermissions()
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .buttonStyle(.glass)
+                .controlSize(.small)
+                .help("Re-check permission")
+                
+                if !settings.hasScreenRecordingPermission {
+                    Button("Grant Access") {
+                        if !ScreenCapture.shared.requestPermission() {
+                            ScreenCapture.shared.openSettings()
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            settings.refreshPermissions()
+                        }
+                    }
+                    .buttonStyle(.glassProminent)
+                    .controlSize(.small)
                     
                     Button {
-                        settings.refreshPermissions()
+                        showingPermissionTroubleshooting.toggle()
                     } label: {
-                        Image(systemName: "arrow.clockwise")
+                        Image(systemName: "questionmark.circle")
                     }
                     .buttonStyle(.glass)
                     .controlSize(.small)
-                    .help("Re-check screen recording permission")
-                    
-                    if !settings.hasScreenRecordingPermission {
-                        Button("Grant Access") {
-                            if !ScreenCapture.shared.requestPermission() {
-                                ScreenCapture.shared.openSettings()
-                            }
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                                settings.refreshPermissions()
-                            }
-                        }
-                        .buttonStyle(.glassProminent)
-                        .controlSize(.small)
-                    }
-                }
-                
-                if !settings.hasScreenRecordingPermission {
-                    Divider()
-                    
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Text("Granted in Settings but still showing as required?")
+                    .help("Permission troubleshooting")
+                    .popover(isPresented: $showingPermissionTroubleshooting, arrowEdge: .trailing) {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Permission Troubleshooting")
+                                .font(.headline)
+                            
+                            Text("If already granted in System Settings, macOS requires an app restart to pick up the token.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                             
-                            Spacer()
-                            
-                            Button("Relaunch App") {
-                                ScreenCapture.shared.relaunchApp()
-                            }
-                            .buttonStyle(.glass)
-                            .controlSize(.small)
-                            
-                            Button(copiedResetCommand ? "Copied!" : "Copy Reset Command") {
-                                NSPasteboard.general.clearContents()
-                                NSPasteboard.general.setString(resetCommand, forType: .string)
-                                copiedResetCommand = true
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                                    copiedResetCommand = false
+                            HStack {
+                                Button("Relaunch App") {
+                                    ScreenCapture.shared.relaunchApp()
                                 }
+                                .buttonStyle(.glassProminent)
+                                .controlSize(.small)
+                                
+                                Button(copiedResetCommand ? "Copied!" : "Copy Reset Command") {
+                                    NSPasteboard.general.clearContents()
+                                    NSPasteboard.general.setString(resetCommand, forType: .string)
+                                    copiedResetCommand = true
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                                        copiedResetCommand = false
+                                    }
+                                }
+                                .buttonStyle(.glass)
+                                .controlSize(.small)
                             }
-                            .buttonStyle(.glass)
-                            .controlSize(.small)
+                            
+                            Text(resetCommand)
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                                .padding(6)
+                                .background(Color.primary.opacity(0.04))
+                                .clipShape(RoundedRectangle(cornerRadius: 4))
                         }
-                        
-                        Text(resetCommand)
-                            .font(.system(size: 11, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color.primary.opacity(0.04))
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .padding(14)
+                        .frame(width: 300)
                     }
                 }
             }
@@ -220,57 +229,27 @@ public struct LiquidGlassControlPanel: View {
     // MARK: - Battery & Power Optimization Card
     private var batteryCard: some View {
         HCISectionCard(title: "Battery & Performance", icon: "battery.100.bolt") {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 8) {
-                    Circle()
-                        .fill(Color.green)
-                        .frame(width: 8, height: 8)
-                    Text("Zero Idle Battery Impact")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(Color.green)
-                    Spacer()
-                    Text(settings.isScreenCaptureDormant ? "Capture Engine: Dormant" : "Capture Engine: Pre-Arming")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(Color.green)
+                    .frame(width: 8, height: 8)
                 
-                Text("macTilt does not poll or record in the background while you work. The screen capture engine remains 100% dormant and is pre-armed strictly during the physical closing motion (~95°). Metal rendering is paused until the clamshell fold begins.")
+                Text("Zero Idle Battery Impact")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundStyle(Color.green)
+                
+                InfoButton("Battery Efficiency", content: "macTilt is 100% dormant with 0 Hz background polling during normal use. Capture is pre-armed exclusively in the millisecond you start closing your display (~95°). Metal rendering is paused until the clamshell fold begins.")
+                
+                Spacer()
+                
+                Text(settings.isScreenCaptureDormant ? "Dormant" : "Pre-Arming")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .lineSpacing(2)
-                
-                Divider()
-                
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Background Polling")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        Text("0 Hz (Event-Driven)")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                    }
-                    Spacer()
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Idle GPU / CPU Impact")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        Text("0.0%")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                    }
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text("Pre-Arm Mechanism")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        Text("Hardware Angle Delta")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                    }
-                }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Color.primary.opacity(0.05))
+                    .clipShape(Capsule())
             }
         }
     }
@@ -278,41 +257,43 @@ public struct LiquidGlassControlPanel: View {
     // MARK: - Tilt Triggers Card
     private var tiltCard: some View {
         HCISectionCard(title: "Tilt Trigger Thresholds", icon: "angle") {
-            VStack(spacing: 14) {
+            VStack(spacing: 12) {
                 // Start Angle Slider Row
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 4) {
                     HStack {
-                        Text("Start Closing Animation At")
+                        Text("Start Fold Angle")
                             .font(.subheadline)
+                        
+                        InfoButton("Start Angle", content: "The MacBook remains in normal usable state above this angle. Folding begins when closed below it.")
+                        
                         Spacer()
+                        
                         Text("\(Int(settings.startTiltAngle))°")
                             .font(.subheadline)
                             .fontWeight(.semibold)
                             .monospacedDigit()
                     }
                     Slider(value: $settings.startTiltAngle, in: 40...120, step: 1)
-                    Text("The MacBook remains in normal usable state above this angle. Folding begins when closed below it.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
                 }
                 
                 Divider()
                 
                 // End Angle Slider Row
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 4) {
                     HStack {
-                        Text("Fully Folded (Void) At")
+                        Text("Full Fold Angle")
                             .font(.subheadline)
+                        
+                        InfoButton("Full Fold Angle", content: "The animation scales smoothly across the closing movement and darkens completely into black at this angle.")
+                        
                         Spacer()
+                        
                         Text("\(Int(settings.endTiltAngle))°")
                             .font(.subheadline)
                             .fontWeight(.semibold)
                             .monospacedDigit()
                     }
                     Slider(value: $settings.endTiltAngle, in: 0...20, step: 1)
-                    Text("The animation smoothly scales across the closing movement and darkens completely at this angle.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
                 }
             }
         }
@@ -326,7 +307,11 @@ public struct LiquidGlassControlPanel: View {
                 HStack {
                     Text("Screen Source")
                         .font(.subheadline)
+                    
+                    InfoButton("Screen Source", content: "Choose between live desktop window freezing, current desktop wallpaper, bundled artwork, or a custom image.")
+                    
                     Spacer()
+                    
                     Picker("", selection: $settings.imageSourceMode) {
                         ForEach(ImageSourceMode.allCases) { mode in
                             Text(mode.title).tag(mode)
@@ -334,7 +319,7 @@ public struct LiquidGlassControlPanel: View {
                     }
                     .labelsHidden()
                     .pickerStyle(.menu)
-                    .frame(width: 180)
+                    .frame(width: 170)
                 }
                 
                 if settings.imageSourceMode == .customImage {
@@ -357,14 +342,13 @@ public struct LiquidGlassControlPanel: View {
                 
                 // Menu Bar Toggle Row
                 HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Show Lid Angle in Menu Bar")
-                            .font(.subheadline)
-                        Text("Show degree reading (e.g. \(Int(settings.currentLidAngle))°) next to the status icon.")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
+                    Text("Show Lid Angle in Menu Bar")
+                        .font(.subheadline)
+                    
+                    InfoButton("Menu Bar Display", content: "Displays the live numerical degree readout (e.g. 120°) next to the status icon.")
+                    
                     Spacer()
+                    
                     Toggle("", isOn: $settings.showAngleInMenuBar)
                         .labelsHidden()
                 }
@@ -381,7 +365,11 @@ public struct LiquidGlassControlPanel: View {
                     HStack {
                         Text("Follow Responsiveness")
                             .font(.subheadline)
+                        
+                        InfoButton("Follow Speed", content: "Controls the exponential smoothing physics of the display turn.")
+                        
                         Spacer()
+                        
                         Text(String(format: "%.0f", settings.followSpeed))
                             .font(.subheadline)
                             .fontWeight(.semibold)
@@ -429,14 +417,13 @@ public struct LiquidGlassControlPanel: View {
         HCISectionCard(title: "Interactive Preview", icon: "play.rectangle") {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Preview Animation")
-                            .font(.subheadline)
-                        Text("Scrub and inspect the fold on your screen without moving the lid.")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
+                    Text("Preview Animation")
+                        .font(.subheadline)
+                    
+                    InfoButton("Interactive Preview", content: "Scrub and inspect the fold on your screen without physically moving the lid.")
+                    
                     Spacer()
+                    
                     Toggle("", isOn: $settings.isTestModeActive)
                         .labelsHidden()
                 }
@@ -549,3 +536,42 @@ private struct HCISectionCard<Content: View>: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
+
+// MARK: - Apple HCI Info Popover Button
+private struct InfoButton: View {
+    let title: String
+    let content: String
+    @State private var isShowing: Bool = false
+    
+    init(_ title: String = "", content: String) {
+        self.title = title
+        self.content = content
+    }
+    
+    var body: some View {
+        Button {
+            isShowing.toggle()
+        } label: {
+            Image(systemName: "info.circle")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $isShowing, arrowEdge: .trailing) {
+            VStack(alignment: .leading, spacing: 6) {
+                if !title.isEmpty {
+                    Text(title)
+                        .font(.headline)
+                }
+                Text(content)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .lineSpacing(2)
+            }
+            .padding(12)
+            .frame(width: 260)
+        }
+    }
+}
+

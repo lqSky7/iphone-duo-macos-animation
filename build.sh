@@ -114,7 +114,22 @@ fi
 echo "▶ Using Signing Identity: $SIGNING_IDENTITY"
 codesign --force --deep --sign "$SIGNING_IDENTITY" "$APP_BUNDLE"
 
-# 7. Install to /Applications
+# 7. Create Disk Image (DMG) Installer
+DMG_OUTPUT="$BUILD_DIR/macTilt.dmg"
+echo "▶ Creating Disk Image ($DMG_OUTPUT)..."
+DMG_STAGING="/tmp/mactilt_dmg_staging"
+rm -rf "$DMG_STAGING" "$DMG_OUTPUT"
+mkdir -p "$DMG_STAGING"
+cp -R "$APP_BUNDLE" "$DMG_STAGING/macTilt.app"
+ln -s /Applications "$DMG_STAGING/Applications"
+hdiutil create -volname "macTilt" -srcfolder "$DMG_STAGING" -ov -format UDZO "$DMG_OUTPUT" >/dev/null 2>&1
+rm -rf "$DMG_STAGING"
+if [ "$SIGNING_IDENTITY" != "-" ]; then
+    codesign --force --sign "$SIGNING_IDENTITY" "$DMG_OUTPUT" >/dev/null 2>&1
+fi
+echo "✔ DMG created and signed: $DMG_OUTPUT"
+
+# 8. Install to /Applications
 INSTALL_TARGET="/Applications/macTilt.app"
 echo "▶ Installing to $INSTALL_TARGET..."
 
