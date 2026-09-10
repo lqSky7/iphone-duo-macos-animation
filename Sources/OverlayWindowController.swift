@@ -52,21 +52,13 @@ public final class OverlayWindowController: NSObject {
     public func update(turn: Double, angle: Double) {
         guard let win = self.window, let mv = self.metalView else { return }
         
-        let settings = AppSettings.shared
-        
-        // Mode: 0 for clamshell, 1 for bookLeft, 2 for bookRight
-        let hingeMode = settings.hingeMode
-        let mode: Int32 = hingeMode == .clamshell ? 0 : 1
-        let hinge: Float = hingeMode == .bookRight ? 1.0 : 0.0
-        
         mv.currentTurn = Float(turn)
-        mv.currentHinge = hinge
-        mv.currentMode = mode
         
+        // Only trigger when closing and turn > 0
         if turn > 0.0001 {
             if wasZeroTurn {
                 wasZeroTurn = false
-                // Trigger fresh screen capture on initial tilt
+                // Trigger fresh screen capture on initial closing tilt
                 captureScreenAsync()
             }
             
@@ -74,6 +66,7 @@ public final class OverlayWindowController: NSObject {
             win.alphaValue = 1.0
             win.orderFrontRegardless()
         } else {
+            // When user is using MacBook (or opening): do nothing, keep completely invisible
             wasZeroTurn = true
             win.alphaValue = 0.0
             mv.isPaused = true

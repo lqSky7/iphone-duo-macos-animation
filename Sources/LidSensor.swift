@@ -16,11 +16,13 @@ public final class LidSensor {
     private var hidReport = [UInt8](repeating: 0, count: 8)
     private static let noOptions = IOOptionBits(kIOHIDOptionsTypeNone)
     
-    // Physics from iphone-solo (app.js)
+    // Physics and motion tracking
     private var lastTime: CFTimeInterval?
     public private(set) var displayTurn: Double = 0.0
     public private(set) var targetTurn: Double = 0.0
     public private(set) var currentRawAngle: Double = 120.0
+    private var previousRawAngle: Double = 120.0
+    private var isActivelyClosing: Bool = false
     
     private init() {
         setupManager()
@@ -65,7 +67,7 @@ public final class LidSensor {
                     if page == 32 && usage == 138 {
                         self.hidDevice = dev
                         AppSettings.shared.isSensorConnected = true
-                        AppSettings.shared.sensorStatusMessage = "Lid Angle Sensor connected (fallback)."
+                        AppSettings.shared.sensorStatusMessage = "Lid Angle Sensor connected."
                         break
                     }
                 }
@@ -87,7 +89,6 @@ public final class LidSensor {
             }
         }
         
-        // 60 Hz polling loop
         timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
             self?.tick()
         }
@@ -118,17 +119,34 @@ public final class LidSensor {
             if result == kIOReturnSuccess, length >= 3 {
                 let rawValue = UInt16(hidReport[2]) << 8 | UInt16(hidReport[1])
                 let angle = Double(rawValue)
+                
+                // Track direction of movement
+                let delta = angle - previousRawAngle
+                if delta < -0.3 {
+                    // Angle is decreasing -> user is closing the lid
+                    isActivelyClosing = true
+                } else if delta > 0.8 {
+                    // Angle is increasing -> user is opening the lid
+                    isActivelyClosing = false
+                }
+                
+                // If angle is above startTiltAngle, the laptop is open in normal use: do nothing
+                if angle >= settings.startTiltAngle {
+                    isActivelyClosing = false
+                }
+                
+                previousRawAngle = angle
                 currentRawAngle = angle
                 settings.currentLidAngle = angle
+                settings.isClosing = isActivelyClosing
                 settings.isSensorConnected = true
             }
         }
         
-        // Compute target turn from settings
-        targetTurn = settings.normalizedTurn(for: currentRawAngle)
+        // Compute target turn: only when closing and below startTiltAngle
+        targetTurn = settings.normalizedTurn(for: currentRawAngle, isLidClosing: isActivelyClosing)
         
-        // Follow easing physics from iphone-solo app.js:
-        // display += (target - display) * (1 - exp(-dt * FOLLOW))
+        // Follow easing physics from iphone-solo app.js
         let now = CACurrentMediaTime()
         let dt: Double
         if let last = lastTime {

@@ -2,30 +2,6 @@ import Foundation
 import Combine
 import SwiftUI
 
-public enum HingeMode: Int, CaseIterable, Identifiable {
-    case clamshell = 0
-    case bookLeft = 1
-    case bookRight = 2
-    
-    public var id: Int { rawValue }
-    
-    public var title: String {
-        switch self {
-        case .clamshell: return "Clamshell (MacBook Bottom Hinge)"
-        case .bookLeft: return "iPhone Solo Left"
-        case .bookRight: return "iPhone Solo Right"
-        }
-    }
-    
-    public var shortTitle: String {
-        switch self {
-        case .clamshell: return "Clamshell"
-        case .bookLeft: return "Book Left"
-        case .bookRight: return "Book Right"
-        }
-    }
-}
-
 public enum ImageSourceMode: Int, CaseIterable, Identifiable {
     case liveCapture = 0
     case desktopWallpaper = 1
@@ -51,7 +27,6 @@ public final class AppSettings: ObservableObject {
     private let kStartTiltAngle = "duo_startTiltAngle"
     private let kEndTiltAngle = "duo_endTiltAngle"
     private let kFollowSpeed = "duo_followSpeed"
-    private let kHingeMode = "duo_hingeMode"
     private let kImageSourceMode = "duo_imageSourceMode"
     private let kCustomImagePath = "duo_customImagePath"
     private let kBlurStrength = "duo_blurStrength"
@@ -70,10 +45,6 @@ public final class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(followSpeed, forKey: kFollowSpeed) }
     }
     
-    @Published public var hingeMode: HingeMode {
-        didSet { UserDefaults.standard.set(hingeMode.rawValue, forKey: kHingeMode) }
-    }
-    
     @Published public var imageSourceMode: ImageSourceMode {
         didSet { UserDefaults.standard.set(imageSourceMode.rawValue, forKey: kImageSourceMode) }
     }
@@ -90,23 +61,21 @@ public final class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(reflectionIntensity, forKey: kReflectionIntensity) }
     }
     
-    // MARK: - Real-time State (Not persisted)
+    // MARK: - Real-time State
     @Published public var isTestModeActive: Bool = false
     @Published public var testTurnValue: Double = 0.0
     @Published public var currentLidAngle: Double = 120.0
     @Published public var isSensorConnected: Bool = false
+    @Published public var isClosing: Bool = false
     @Published public var sensorStatusMessage: String = "Initializing sensor..."
     
     private init() {
         let defaults = UserDefaults.standard
         
-        // Defaults
-        self.startTiltAngle = defaults.object(forKey: kStartTiltAngle) != nil ? defaults.double(forKey: kStartTiltAngle) : 110.0
+        // Defaults: when MacBook begins closing below 105 degrees, start animation
+        self.startTiltAngle = defaults.object(forKey: kStartTiltAngle) != nil ? defaults.double(forKey: kStartTiltAngle) : 105.0
         self.endTiltAngle = defaults.object(forKey: kEndTiltAngle) != nil ? defaults.double(forKey: kEndTiltAngle) : 15.0
         self.followSpeed = defaults.object(forKey: kFollowSpeed) != nil ? defaults.double(forKey: kFollowSpeed) : 16.0
-        
-        let savedHinge = defaults.integer(forKey: kHingeMode)
-        self.hingeMode = HingeMode(rawValue: savedHinge) ?? .clamshell
         
         let savedSource = defaults.integer(forKey: kImageSourceMode)
         self.imageSourceMode = ImageSourceMode(rawValue: savedSource) ?? .liveCapture
@@ -116,23 +85,29 @@ public final class AppSettings: ObservableObject {
         self.reflectionIntensity = defaults.object(forKey: kReflectionIntensity) != nil ? defaults.double(forKey: kReflectionIntensity) : 1.0
     }
     
-    /// Calculate normalized turn (0.0 to 1.0) given a raw lid angle
-    public func normalizedTurn(for angle: Double) -> Double {
+    /// Calculate normalized turn (0.0 to 1.0) given current lid angle and whether lid is closing
+    public func normalizedTurn(for angle: Double, isLidClosing: Bool) -> Double {
         if isTestModeActive {
             return min(1.0, max(0.0, testTurnValue))
         }
         
-        // When lid is open wider than startTiltAngle, turn is 0.0 (unfolded/normal)
+        // User requirement:
+        // "when user is using macbook do nothing. only when macbook is closed this animation should trigger. macbook opening leave it for now"
+        // If angle is above the start tilt threshold (user is using Mac): do nothing (turn = 0.0)
         if angle >= startTiltAngle {
             return 0.0
         }
         
-        // When lid is closed below endTiltAngle, turn is 1.0 (fully folded into dark)
+        // If the lid is opening, do nothing (leave opening for now)
+        if !isLidClosing {
+            return 0.0
+        }
+        
+        // When lid is closing and below startTiltAngle, compute turn:
         if angle <= endTiltAngle {
             return 1.0
         }
         
-        // Linear interpolation between start and end
         let range = startTiltAngle - endTiltAngle
         guard range > 0.001 else { return 0.0 }
         let progress = (startTiltAngle - angle) / range

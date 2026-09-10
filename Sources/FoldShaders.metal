@@ -11,8 +11,6 @@ struct Uniforms {
     float2 cover;
     float aspect;
     float turn;
-    float hinge;
-    int mode; // 0: Clamshell (MacBook bottom), 1: Book Left, 2: Book Right
     float blurStrength;
     float reflectionIntensity;
 };
@@ -53,6 +51,7 @@ inline float3 sampleImage(texture2d<float> tex, sampler s, float2 uv, float sigm
     return mix(sharp, blurred, smoothstep(0.0, 2.0, sigma));
 }
 
+// MacBook Up-to-Down Closing Fold Fragment Shader
 fragment float4 foldFragment(VertexOut in [[stage_in]],
                              texture2d<float> tex [[texture(0)]],
                              sampler s [[sampler(0)]],
@@ -62,78 +61,51 @@ fragment float4 foldFragment(VertexOut in [[stage_in]],
         return float4(sampleImage(tex, s, in.uv, 0.0, u.cover), 1.0);
     }
     
-    float outer = 1.0 - u.hinge;
+    // Up-to-Down Fold: Hinge is at the bottom edge (in.uv.y = 1.0)
+    // fromHinge is 0.0 at the bottom hinge and 1.0 at the top edge
+    float fromHinge = clamp(1.0 - in.uv.y, 0.0, 1.0);
     float tilt = turn * HALF_PI;
     float bend = min(tilt, MAX_TILT);
     float cosine = cos(bend);
     float sine = sin(bend);
     
-    float fromHinge;
-    float2 plane;
-    float softness;
-    float mask;
+    // Perspective projection along vertical axis
+    float eye = 2.4 * max(1.0 / u.aspect, 1.0);
+    float depth = fromHinge * (1.0 / u.aspect) * sine;
+    float perspective = eye / (eye - depth);
     
-    if (u.mode == 0) {
-        // Clamshell mode: Hinge is at the bottom of the MacBook screen (y = 1.0 in UV)
-        fromHinge = clamp(1.0 - in.uv.y, 0.0, 1.0);
-        float eye = 2.4 * max(1.0 / u.aspect, 1.0);
-        float depth = fromHinge * (1.0 / u.aspect) * sine;
-        float perspective = eye / (eye - depth);
-        
-        plane.y = 1.0 - (1.0 - in.uv.y) * cosine * perspective;
-        plane.x = 0.5 + (in.uv.x - 0.5) * perspective;
-        
-        float blurAngle = pow(smoothstep(0.0, HALF_PI, tilt), 0.5);
-        float blurSpread = pow(smoothstep(0.0, 0.7, fromHinge), 1.45);
-        float defocus = blurAngle * mix(0.18, 1.0, blurSpread);
-        float sigma = u.imageSize.y * BLUR * defocus * u.blurStrength;
-        
-        softness = fwidth(in.uv.x) + 2.0 * sigma / u.imageSize.x;
-        mask = 1.0 - smoothstep(0.5 - softness, 0.5 + softness, abs(plane.x - 0.5));
-        
-        float3 color = sampleImage(tex, s, plane, sigma, u.cover);
-        float glass = sine * pow(fromHinge, 1.6);
-        color *= 1.0 - mix(0.28, 0.06, outer) * glass;
-        float reflection = exp(-pow((fromHinge - 0.70) / 0.30, 2.0)) * sine;
-        color += float3(0.82, 0.85, 0.86) * reflection * (0.025 * u.reflectionIntensity);
-        
-        float fade = clamp((fromHinge - 0.26) / 0.74, 0.0, 1.0);
-        color *= 1.0 - 0.7 * blurAngle * fade;
-        
-        return float4(mix(DARK, color, mask), 1.0);
-    } else {
-        // Book fold mode: exact 1:1 iphone-solo fold along left (hinge=0) or right (hinge=1)
-        fromHinge = abs(in.uv.x - u.hinge);
-        float eye = 2.4 * max(u.aspect, 1.0);
-        float depth = fromHinge * u.aspect * sine;
-        float perspective = eye / (eye - depth);
-        
-        plane.x = u.hinge + (in.uv.x - u.hinge) * cosine * perspective;
-        plane.y = 0.5 + (in.uv.y - 0.5) * perspective;
-        
-        float blurAngle = pow(smoothstep(0.0, HALF_PI, tilt), 0.5);
-        float blurSpread = pow(smoothstep(0.0, 0.7, fromHinge), 1.45);
-        float defocus = blurAngle * mix(0.18, 1.0, blurSpread);
-        float sigma = u.imageSize.x * BLUR * defocus * u.blurStrength;
-        
-        softness = fwidth(in.uv.y) + 2.0 * sigma / u.imageSize.y;
-        mask = 1.0 - smoothstep(0.5 - softness, 0.5 + softness, abs(plane.y - 0.5));
-        
-        float3 color = sampleImage(tex, s, plane, sigma, u.cover);
-        float glass = sine * pow(fromHinge, 1.6);
-        color *= 1.0 - mix(0.28, 0.06, outer) * glass;
-        float reflection = exp(-pow((fromHinge - 0.70) / 0.30, 2.0)) * sine;
-        color += float3(0.82, 0.85, 0.86) * reflection * (0.025 * u.reflectionIntensity);
-        
-        float fade = clamp((fromHinge - 0.26) / 0.74, 0.0, 1.0);
-        color *= 1.0 - 0.7 * blurAngle * fade;
-        
-        return float4(mix(DARK, color, mask), 1.0);
-    }
+    float2 plane;
+    // The top folds down toward the bottom hinge in perspective
+    plane.y = 1.0 - fromHinge * cosine * perspective;
+    plane.x = 0.5 + (in.uv.x - 0.5) * perspective;
+    
+    // Defocus blur from mip chain
+    float blurAngle = pow(smoothstep(0.0, HALF_PI, tilt), 0.5);
+    float blurSpread = pow(smoothstep(0.0, 0.7, fromHinge), 1.45);
+    float defocus = blurAngle * mix(0.18, 1.0, blurSpread);
+    float sigma = u.imageSize.y * BLUR * defocus * u.blurStrength;
+    
+    // Horizontal edge softness
+    float softness = fwidth(in.uv.x) + 2.0 * sigma / u.imageSize.x;
+    float mask = 1.0 - smoothstep(0.5 - softness, 0.5 + softness, abs(plane.x - 0.5));
+    
+    // Sample blurred image
+    float3 color = sampleImage(tex, s, plane, sigma, u.cover);
+    
+    // Glass refraction and reflection
+    float glass = sine * pow(fromHinge, 1.6);
+    color *= 1.0 - 0.18 * glass;
+    float reflection = exp(-pow((fromHinge - 0.70) / 0.30, 2.0)) * sine;
+    color += float3(0.82, 0.85, 0.86) * reflection * (0.025 * u.reflectionIntensity);
+    
+    // Dark void fade towards top edge
+    float fade = clamp((fromHinge - 0.26) / 0.74, 0.0, 1.0);
+    color *= 1.0 - 0.7 * blurAngle * fade;
+    
+    return float4(mix(DARK, color, mask), 1.0);
 }
 
-// MARK: - Gaussian Mip Blur (5-tap separable filter from iphone-solo GAUSS shader)
-
+// Gaussian Mip Blur (5-tap separable filter)
 struct GaussUniforms {
     float2 step;
     float level;

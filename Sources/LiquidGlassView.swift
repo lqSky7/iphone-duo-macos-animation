@@ -14,11 +14,11 @@ public struct LiquidGlassControlPanel: View {
             // Customization Options
             ScrollView {
                 VStack(spacing: 16) {
-                    // Tilt Trigger Settings (User requirement: when to start animation based on tilt)
+                    // Tilt Trigger Settings (when to start animation based on tilt)
                     tiltSection
                         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 14))
                     
-                    // Animation & Hinge Controls
+                    // Animation & Physics Controls
                     animationSection
                         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 14))
                     
@@ -85,25 +85,27 @@ public struct LiquidGlassControlPanel: View {
     
     private var angleStatusDescription: String {
         if settings.currentLidAngle >= settings.startTiltAngle {
-            return "Flat / Fully Open"
+            return "Using Mac (Idle)"
         } else if settings.currentLidAngle <= settings.endTiltAngle {
-            return "Folded / Closed"
+            return "Lid Closed"
+        } else if settings.isClosing {
+            let pct = Int(settings.normalizedTurn(for: settings.currentLidAngle, isLidClosing: true) * 100)
+            return "Closing (\(pct)%)"
         } else {
-            let pct = Int(settings.normalizedTurn(for: settings.currentLidAngle) * 100)
-            return "Folding (\(pct)%)"
+            return "Opening / Idle"
         }
     }
     
     // MARK: - Tilt Triggers (Start & End tilt angles)
     private var tiltSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Label("Tilt Thresholds", systemImage: "angle")
+            Label("Tilt Trigger Thresholds", systemImage: "angle")
                 .font(.subheadline)
                 .fontWeight(.semibold)
             
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Text("Start Animation At:")
+                    Text("Start Closing Animation At:")
                         .font(.subheadline)
                     Spacer()
                     Text("\(Int(settings.startTiltAngle))°")
@@ -111,8 +113,8 @@ public struct LiquidGlassControlPanel: View {
                         .fontWeight(.bold)
                         .monospacedDigit()
                 }
-                Slider(value: $settings.startTiltAngle, in: 60...135, step: 1)
-                Text("Animation triggers when MacBook lid closes below this angle.")
+                Slider(value: $settings.startTiltAngle, in: 60...130, step: 1)
+                Text("While using your Mac (angle > \(Int(settings.startTiltAngle))°), app does nothing. Animation triggers when closing below this angle.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
@@ -121,7 +123,7 @@ public struct LiquidGlassControlPanel: View {
             
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Text("Full Fold (Dark Void) At:")
+                    Text("Fully Folded (Void) At:")
                         .font(.subheadline)
                     Spacer()
                     Text("\(Int(settings.endTiltAngle))°")
@@ -129,8 +131,8 @@ public struct LiquidGlassControlPanel: View {
                         .fontWeight(.bold)
                         .monospacedDigit()
                 }
-                Slider(value: $settings.endTiltAngle, in: 0...45, step: 1)
-                Text("Screen becomes completely folded and dark at this angle.")
+                Slider(value: $settings.endTiltAngle, in: 5...45, step: 1)
+                Text("Screen becomes completely folded up-to-down and dark at this angle.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
@@ -138,28 +140,16 @@ public struct LiquidGlassControlPanel: View {
         .padding(16)
     }
     
-    // MARK: - Animation & Hinge Options
+    // MARK: - Animation & Physics Options
     private var animationSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Label("Animation & Physics", systemImage: "sparkles")
+            Label("Animation Physics & Effects", systemImage: "sparkles")
                 .font(.subheadline)
                 .fontWeight(.semibold)
             
             VStack(alignment: .leading, spacing: 6) {
-                Text("Hinge Style")
-                    .font(.subheadline)
-                
-                Picker("Hinge Style", selection: $settings.hingeMode) {
-                    ForEach(HingeMode.allCases) { mode in
-                        Text(mode.shortTitle).tag(mode)
-                    }
-                }
-                .pickerStyle(.segmented)
-            }
-            
-            VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Text("Follow Speed (Easing):")
+                    Text("Follow Responsiveness:")
                         .font(.subheadline)
                     Spacer()
                     Text(String(format: "%.1f", settings.followSpeed))
@@ -168,6 +158,9 @@ public struct LiquidGlassControlPanel: View {
                         .monospacedDigit()
                 }
                 Slider(value: $settings.followSpeed, in: 6...30, step: 1)
+                Text("Controls the exponential follow smoothing (from iPhone Duo app.js).")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
             
             HStack(spacing: 16) {
@@ -232,7 +225,7 @@ public struct LiquidGlassControlPanel: View {
             if settings.isTestModeActive {
                 VStack(spacing: 6) {
                     HStack {
-                        Text("Fold Turn:")
+                        Text("Fold Turn (Up to Down):")
                             .font(.caption)
                         Spacer()
                         Text("\(Int(settings.testTurnValue * 100))%")
@@ -244,7 +237,7 @@ public struct LiquidGlassControlPanel: View {
                 }
                 .transition(.opacity)
             } else {
-                Text("Enable to preview the full-screen fold animation without moving the lid.")
+                Text("Enable to preview the up-to-down closing animation live on your screen without moving the lid.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
@@ -256,10 +249,9 @@ public struct LiquidGlassControlPanel: View {
     private var footerSection: some View {
         HStack {
             Button("Reset Defaults") {
-                settings.startTiltAngle = 110.0
+                settings.startTiltAngle = 105.0
                 settings.endTiltAngle = 15.0
                 settings.followSpeed = 16.0
-                settings.hingeMode = .clamshell
                 settings.imageSourceMode = .liveCapture
                 settings.blurStrength = 1.0
                 settings.reflectionIntensity = 1.0

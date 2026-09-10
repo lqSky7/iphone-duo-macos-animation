@@ -24,7 +24,7 @@ public final class MenuBarController: NSObject {
         
         let menu = NSMenu()
         
-        let header = NSMenuItem(title: "iPhone Duo Animation", action: nil, keyEquivalent: "")
+        let header = NSMenuItem(title: "iPhone Duo Clamshell Animation", action: nil, keyEquivalent: "")
         header.isEnabled = false
         menu.addItem(header)
         
@@ -39,24 +39,11 @@ public final class MenuBarController: NSObject {
         openSettings.target = self
         menu.addItem(openSettings)
         
-        menu.addItem(NSMenuItem.separator())
-        
-        let hingeMenu = NSMenu()
-        for mode in HingeMode.allCases {
-            let mItem = NSMenuItem(title: mode.title, action: #selector(setHingeMode(_:)), keyEquivalent: "")
-            mItem.target = self
-            mItem.tag = mode.rawValue
-            hingeMenu.addItem(mItem)
-        }
-        let hingeParent = NSMenuItem(title: "Hinge Mode", action: nil, keyEquivalent: "")
-        hingeParent.submenu = hingeMenu
-        menu.addItem(hingeParent)
-        
-        let testToggle = NSMenuItem(title: "Toggle Test Preview", action: #selector(toggleTestMode), keyEquivalent: "t")
+        let testToggle = NSMenuItem(title: "Toggle Test Preview Slider", action: #selector(toggleTestMode), keyEquivalent: "t")
         testToggle.target = self
         menu.addItem(testToggle)
         
-        let captureItem = NSMenuItem(title: "Re-capture Screen", action: #selector(recaptureScreen), keyEquivalent: "r")
+        let captureItem = NSMenuItem(title: "Re-capture Screen Snapshot", action: #selector(recaptureScreen), keyEquivalent: "r")
         captureItem.target = self
         menu.addItem(captureItem)
         
@@ -76,7 +63,8 @@ public final class MenuBarController: NSObject {
         }
         if let angleItem = self.angleMenuItem {
             if isConnected {
-                angleItem.title = "Lid Angle: \(Int(angle))°"
+                let status = AppSettings.shared.isClosing ? "Closing (\(Int(angle))°)" : "Idle (\(Int(angle))°)"
+                angleItem.title = "Lid: \(status)"
             } else {
                 angleItem.title = "Lid Sensor: Disconnected"
             }
@@ -106,12 +94,6 @@ public final class MenuBarController: NSObject {
         self.controlPanelWindow = win
         win.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
-    }
-    
-    @objc private func setHingeMode(_ sender: NSMenuItem) {
-        if let mode = HingeMode(rawValue: sender.tag) {
-            AppSettings.shared.hingeMode = mode
-        }
     }
     
     @objc private func toggleTestMode() {

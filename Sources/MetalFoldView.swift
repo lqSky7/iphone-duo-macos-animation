@@ -8,8 +8,6 @@ public struct Uniforms {
     public var cover: SIMD2<Float>
     public var aspect: Float
     public var turn: Float
-    public var hinge: Float
-    public var mode: Int32
     public var blurStrength: Float
     public var reflectionIntensity: Float
     
@@ -17,16 +15,12 @@ public struct Uniforms {
                 cover: SIMD2<Float> = .init(1, 1),
                 aspect: Float = 1.0,
                 turn: Float = 0.0,
-                hinge: Float = 0.0,
-                mode: Int32 = 0,
                 blurStrength: Float = 1.0,
                 reflectionIntensity: Float = 1.0) {
         self.imageSize = imageSize
         self.cover = cover
         self.aspect = aspect
         self.turn = turn
-        self.hinge = hinge
-        self.mode = mode
         self.blurStrength = blurStrength
         self.reflectionIntensity = reflectionIntensity
     }
@@ -41,8 +35,6 @@ public final class MetalFoldView: MTKView, MTKViewDelegate {
     private var imageSize: SIMD2<Float> = .init(1920, 1080)
     
     public var currentTurn: Float = 0.0
-    public var currentHinge: Float = 0.0
-    public var currentMode: Int32 = 0
     
     public init(frame: CGRect) {
         guard let device = MTLCreateSystemDefaultDevice() else {
@@ -215,8 +207,6 @@ public final class MetalFoldView: MTKView, MTKViewDelegate {
             cover: cover,
             aspect: aspect,
             turn: currentTurn,
-            hinge: currentHinge,
-            mode: currentMode,
             blurStrength: Float(settings.blurStrength),
             reflectionIntensity: Float(settings.reflectionIntensity)
         )
