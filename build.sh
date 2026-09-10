@@ -66,6 +66,16 @@ cp "$INFO_PLIST" "$CONTENTS_DIR/Info.plist"
 if [ -f "$DIR/Resources/default.png" ]; then
     cp "$DIR/Resources/default.png" "$RESOURCES_DIR/default.png"
 fi
+if [ -f "$DIR/Resources/AppIcon.svg" ]; then
+    cp "$DIR/Resources/AppIcon.svg" "$RESOURCES_DIR/AppIcon.svg"
+fi
+if [ -f "$DIR/Resources/AppIcon.icns" ]; then
+    cp "$DIR/Resources/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
+    /usr/libexec/PlistBuddy -c "Set :CFBundleIconFile AppIcon" "$CONTENTS_DIR/Info.plist" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string AppIcon" "$CONTENTS_DIR/Info.plist"
+elif [ -f "$DIR/Resources/AppIcon.icon" ]; then
+    cp "$DIR/Resources/AppIcon.icon" "$RESOURCES_DIR/AppIcon.icns"
+    /usr/libexec/PlistBuddy -c "Set :CFBundleIconFile AppIcon" "$CONTENTS_DIR/Info.plist" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string AppIcon" "$CONTENTS_DIR/Info.plist"
+fi
 
 # 6. Codesign App Bundle
 echo "▶ Codesigning Application Bundle..."

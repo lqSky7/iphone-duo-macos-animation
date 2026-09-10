@@ -8,6 +8,8 @@ public final class MenuBarController: NSObject {
     private var statusItem: NSStatusItem?
     private var controlPanelWindow: NSWindow?
     private var angleMenuItem: NSMenuItem?
+    private var lastAngle: Double = 120.0
+    private var lastIsConnected: Bool = false
     
     public override init() {
         super.init()
@@ -19,7 +21,7 @@ public final class MenuBarController: NSObject {
         if let button = item.button {
             button.image = NSImage(systemSymbolName: "laptopcomputer", accessibilityDescription: "iPhone Duo")
             button.imagePosition = .imageLeading
-            button.title = " --°"
+            button.title = ""
         }
         
         let menu = NSMenu()
@@ -55,18 +57,38 @@ public final class MenuBarController: NSObject {
         
         item.menu = menu
         self.statusItem = item
+        
+        refreshMenuBarTitle()
     }
     
     public func updateAngleDisplay(angle: Double, isConnected: Bool) {
+        lastAngle = angle
+        lastIsConnected = isConnected
+        
         if let button = statusItem?.button {
-            button.title = " \(Int(angle))°"
+            if AppSettings.shared.showAngleInMenuBar {
+                button.title = " \(Int(angle))°"
+            } else {
+                button.title = ""
+            }
         }
+        
         if let angleItem = self.angleMenuItem {
             if isConnected {
                 let status = AppSettings.shared.isClosing ? "Closing (\(Int(angle))°)" : "Idle (\(Int(angle))°)"
                 angleItem.title = "Lid: \(status)"
             } else {
                 angleItem.title = "Lid Sensor: Disconnected"
+            }
+        }
+    }
+    
+    public func refreshMenuBarTitle() {
+        if let button = statusItem?.button {
+            if AppSettings.shared.showAngleInMenuBar {
+                button.title = " \(Int(lastAngle))°"
+            } else {
+                button.title = ""
             }
         }
     }
@@ -79,7 +101,7 @@ public final class MenuBarController: NSObject {
         }
         
         let win = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 480, height: 640),
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 680),
             styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView],
             backing: .buffered,
             defer: false

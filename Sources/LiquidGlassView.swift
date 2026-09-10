@@ -18,6 +18,10 @@ public struct LiquidGlassControlPanel: View {
             // Customization Options ScrollView
             ScrollView {
                 VStack(spacing: 14) {
+                    // Menu Bar Display Settings (Option to hide lid sensor value from menu bar)
+                    menuBarSection
+                        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12))
+                    
                     // Tilt Trigger Thresholds (Configured for full closing arc)
                     tiltSection
                         .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 12))
@@ -41,7 +45,7 @@ public struct LiquidGlassControlPanel: View {
             footerSection
         }
         .padding(20)
-        .frame(width: 480, height: 680)
+        .frame(width: 480, height: 720)
         // Clean, solid macOS window background (NOT glass, for crisp contrast and readability)
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {
@@ -136,6 +140,23 @@ public struct LiquidGlassControlPanel: View {
             }
         }
         .padding(12)
+    }
+    
+    // MARK: - Menu Bar Display Section
+    private var menuBarSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Menu Bar Display", systemImage: "menubar.rectangle")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+            
+            Toggle("Show Lid Sensor Angle in Menu Bar", isOn: $settings.showAngleInMenuBar)
+                .font(.subheadline)
+            
+            Text(settings.showAngleInMenuBar ? "Displays the live angle (e.g. \(Int(settings.currentLidAngle))°) next to the menu bar icon." : "Icon-only mode. The numerical sensor degree value is hidden.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .padding(14)
     }
     
     // MARK: - Tilt Triggers (Start & End tilt angles)
@@ -294,6 +315,7 @@ public struct LiquidGlassControlPanel: View {
                 settings.imageSourceMode = .liveCapture
                 settings.blurStrength = 1.0
                 settings.reflectionIntensity = 1.0
+                settings.showAngleInMenuBar = true
                 settings.isTestModeActive = false
                 settings.testTurnValue = 0.0
             }

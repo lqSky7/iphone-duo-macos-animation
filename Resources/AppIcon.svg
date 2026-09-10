@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1c1d22" />
+      <stop offset="100%" stop-color="#090a0d" />
+    </linearGradient>
+
+    <!-- App Squircle Clip -->
+    <clipPath id="squircleClip">
+      <rect x="32" y="32" width="960" height="960" rx="224" ry="224" />
+    </clipPath>
+
+    <!-- Outer Bevel Glow -->
+    <linearGradient id="bevelGlow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.18" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.02" />
+    </linearGradient>
+
+    <!-- Bottom Chassis Gradient (Base) -->
+    <linearGradient id="baseGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2a2c35" />
+      <stop offset="100%" stop-color="#14151a" />
+    </linearGradient>
+
+    <!-- Folding Top Display Gradient -->
+    <linearGradient id="foldScreenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f2fe" />
+      <stop offset="40%" stop-color="#4facfe" />
+      <stop offset="80%" stop-color="#6b11ff" />
+      <stop offset="100%" stop-color="#ff0844" />
+    </linearGradient>
+
+    <!-- Glass Refraction Overlay -->
+    <linearGradient id="glassOverlay" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.45" />
+      <stop offset="30%" stop-color="#ffffff" stop-opacity="0.1" />
+      <stop offset="70%" stop-color="#000000" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.8" />
+    </linearGradient>
+
+    <!-- Hinge Metallic Sheen -->
+    <linearGradient id="hingeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#3a3d47" />
+      <stop offset="50%" stop-color="#8e929f" />
+      <stop offset="100%" stop-color="#3a3d47" />
+    </linearGradient>
+
+    <!-- Drop Shadow for Folding Screen -->
+    <filter id="screenShadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="28" stdDeviation="36" flood-color="#000000" flood-opacity="0.75" />
+    </filter>
+
+    <!-- Subtle Glow around folding screen -->
+    <filter id="glowEffect" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="24" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Squircle Base -->
+  <g clip-path="url(#squircleClip)">
+    <!-- Canvas Background -->
+    <rect x="32" y="32" width="960" height="960" fill="url(#bgGrad)" />
+
+    <!-- Ambient Shadow Under MacBook -->
+    <ellipse cx="512" cy="790" rx="380" ry="70" fill="#000000" opacity="0.65" filter="url(#glowEffect)" />
+
+    <!-- MacBook Base (Chassis / Keyboard Half) -->
+    <!-- Perspective polygon representing the bottom laptop deck -->
+    <polygon points="144,760 880,760 768,580 256,580" fill="url(#baseGrad)" stroke="#3e414c" stroke-width="2" />
+
+    <!-- Base Trackpad Outline -->
+    <polygon points="432,745 592,745 580,685 444,685" fill="#1b1c22" stroke="#363945" stroke-width="1.5" rx="4" />
+
+    <!-- Keyboard Area Indentation -->
+    <polygon points="268,670 756,670 740,595 284,595" fill="#17181f" opacity="0.9" />
+
+    <!-- Hinge Bar -->
+    <rect x="254" y="574" width="516" height="12" rx="4" fill="url(#hingeGrad)" />
+
+    <!-- Ambient Screen Light Glow on Base -->
+    <polygon points="256,580 768,580 840,730 184,730" fill="url(#foldScreenGrad)" opacity="0.18" filter="url(#glowEffect)" />
+
+    <!-- 3D Folding Top Screen (Closing toward base) -->
+    <!-- Modeled with 3D perspective fold geometry -->
+    <g filter="url(#screenShadow)">
+      <!-- Outer Display Lid Bezel -->
+      <polygon points="256,576 768,576 832,270 192,270" fill="#18191f" stroke="#484b57" stroke-width="3" />
+
+      <!-- Active Display Glass Surface -->
+      <polygon points="270,568 754,568 814,286 210,286" fill="url(#foldScreenGrad)" />
+
+      <!-- Glass Specular Sweep & Frost Defocus Simulation -->
+      <polygon points="270,568 754,568 814,286 210,286" fill="url(#glassOverlay)" />
+
+      <!-- Top Glass Specular Edge Highlight -->
+      <line x1="210" y1="286" x2="814" y2="286" stroke="#ffffff" stroke-width="4" stroke-linecap="round" opacity="0.85" />
+
+      <!-- Screen Notch / Camera Indicator -->
+      <polygon points="488,286 536,286 532,298 492,298" fill="#121317" />
+      <circle cx="512" cy="292" r="2.5" fill="#24507a" />
+    </g>
+
+    <!-- Outer Squircle Border Rim -->
+    <rect x="32" y="32" width="960" height="960" rx="224" ry="224" fill="none" stroke="url(#bevelGlow)" stroke-width="4" />
+  </g>
+</svg>

@@ -31,6 +31,7 @@ public final class AppSettings: ObservableObject {
     private let kCustomImagePath = "duo_customImagePath"
     private let kBlurStrength = "duo_blurStrength"
     private let kReflectionIntensity = "duo_reflectionIntensity"
+    private let kShowAngleInMenuBar = "duo_showAngleInMenuBar"
     
     // MARK: - Customizable Animation Options
     @Published public var startTiltAngle: Double {
@@ -61,6 +62,13 @@ public final class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(reflectionIntensity, forKey: kReflectionIntensity) }
     }
     
+    @Published public var showAngleInMenuBar: Bool {
+        didSet {
+            UserDefaults.standard.set(showAngleInMenuBar, forKey: kShowAngleInMenuBar)
+            MenuBarController.shared.refreshMenuBarTitle()
+        }
+    }
+    
     // MARK: - Real-time State
     @Published public var isTestModeActive: Bool = false
     @Published public var testTurnValue: Double = 0.0
@@ -73,8 +81,7 @@ public final class AppSettings: ObservableObject {
     private init() {
         let defaults = UserDefaults.standard
         
-        // Defaults: start closing animation at 80 degrees, complete at 3 degrees
-        // This ensures the animation spans the natural closing motion and doesn't finish too early
+        // Defaults
         self.startTiltAngle = defaults.object(forKey: kStartTiltAngle) != nil ? defaults.double(forKey: kStartTiltAngle) : 80.0
         self.endTiltAngle = defaults.object(forKey: kEndTiltAngle) != nil ? defaults.double(forKey: kEndTiltAngle) : 3.0
         self.followSpeed = defaults.object(forKey: kFollowSpeed) != nil ? defaults.double(forKey: kFollowSpeed) : 16.0
@@ -85,6 +92,8 @@ public final class AppSettings: ObservableObject {
         self.customImagePath = defaults.string(forKey: kCustomImagePath) ?? ""
         self.blurStrength = defaults.object(forKey: kBlurStrength) != nil ? defaults.double(forKey: kBlurStrength) : 1.0
         self.reflectionIntensity = defaults.object(forKey: kReflectionIntensity) != nil ? defaults.double(forKey: kReflectionIntensity) : 1.0
+        
+        self.showAngleInMenuBar = defaults.object(forKey: kShowAngleInMenuBar) != nil ? defaults.bool(forKey: kShowAngleInMenuBar) : true
         
         refreshPermissions()
     }
