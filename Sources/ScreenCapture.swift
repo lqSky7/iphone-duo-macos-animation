@@ -40,7 +40,7 @@ public final class ScreenCapture {
         case .desktopWallpaper:
             return fetchWallpaperImage() ?? fetchBundledDefaultImage()
             
-        case .soloDefault:
+        case .bundledArtwork:
             return fetchBundledDefaultImage()
             
         case .customImage:
@@ -88,7 +88,7 @@ public final class ScreenCapture {
         return image.cgImage(forProposedRect: nil, context: nil, hints: nil)
     }
     
-    /// Fallback to the bundled default.png artwork from iphone-solo
+    /// Fallback to the bundled default.png artwork
     public func fetchBundledDefaultImage() -> CGImage? {
         if let bundleUrl = Bundle.main.url(forResource: "default", withExtension: "png"),
            let img = NSImage(contentsOf: bundleUrl) {

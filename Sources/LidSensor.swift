@@ -146,7 +146,7 @@ public final class LidSensor {
         // Compute target turn: only when closing and below startTiltAngle
         targetTurn = settings.normalizedTurn(for: currentRawAngle, isLidClosing: isActivelyClosing)
         
-        // Follow easing physics from iphone-solo app.js
+        // Follow easing physics
         let now = CACurrentMediaTime()
         let dt: Double
         if let last = lastTime {

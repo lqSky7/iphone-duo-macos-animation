@@ -5,7 +5,7 @@ import SwiftUI
 public enum ImageSourceMode: Int, CaseIterable, Identifiable {
     case liveCapture = 0
     case desktopWallpaper = 1
-    case soloDefault = 2
+    case bundledArtwork = 2
     case customImage = 3
     
     public var id: Int { rawValue }
@@ -14,7 +14,7 @@ public enum ImageSourceMode: Int, CaseIterable, Identifiable {
         switch self {
         case .liveCapture: return "Live Screen Capture"
         case .desktopWallpaper: return "Desktop Wallpaper"
-        case .soloDefault: return "Bundled Solo Artwork"
+        case .bundledArtwork: return "Bundled Artwork"
         case .customImage: return "Custom Image"
         }
     }
