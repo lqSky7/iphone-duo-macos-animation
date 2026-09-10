@@ -75,7 +75,13 @@ public final class AppSettings: ObservableObject {
     }
     
     // MARK: - Real-time State
-    @Published public var isTestModeActive: Bool = false
+    @Published public var isTestModeActive: Bool = false {
+        didSet {
+            if !isTestModeActive {
+                testTurnValue = 0.0
+            }
+        }
+    }
     @Published public var testTurnValue: Double = 0.0
     @Published public var currentLidAngle: Double = 120.0
     @Published public var isSensorConnected: Bool = false

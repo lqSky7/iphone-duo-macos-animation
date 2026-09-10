@@ -69,6 +69,11 @@ public struct LiquidGlassControlPanel: View {
         .onAppear {
             settings.refreshPermissions()
         }
+        .onDisappear {
+            settings.isTestModeActive = false
+            settings.testTurnValue = 0.0
+            OverlayWindowController.shared.stopOverlay()
+        }
     }
     
     // MARK: - Header Bar
@@ -447,7 +452,23 @@ public struct LiquidGlassControlPanel: View {
                                 .fontWeight(.bold)
                                 .monospacedDigit()
                         }
-                        Slider(value: $settings.testTurnValue, in: 0.0...1.0)
+                        Slider(value: $settings.testTurnValue, in: 0.0...1.0) { isEditing in
+                            if isEditing {
+                                settings.isTestModeActive = true
+                                OverlayWindowController.shared.captureScreenAsync()
+                            } else {
+                                // Stop the overlay on screen as soon as the user leaves the slider
+                                withAnimation(.easeOut(duration: 0.25)) {
+                                    settings.testTurnValue = 0.0
+                                }
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                                    if settings.testTurnValue == 0.0 {
+                                        settings.isTestModeActive = false
+                                        OverlayWindowController.shared.stopOverlay()
+                                    }
+                                }
+                            }
+                        }
                     }
                     .transition(.opacity)
                 }
@@ -481,6 +502,9 @@ public struct LiquidGlassControlPanel: View {
             Spacer()
             
             Button("Done") {
+                settings.isTestModeActive = false
+                settings.testTurnValue = 0.0
+                OverlayWindowController.shared.stopOverlay()
                 NSApp.keyWindow?.orderOut(nil)
             }
             .buttonStyle(.glassProminent)

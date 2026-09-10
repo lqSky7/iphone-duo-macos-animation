@@ -92,11 +92,17 @@ public final class OverlayWindowController: NSObject {
             win.alphaValue = 1.0
             win.orderFrontRegardless()
         } else {
-            // When user is using MacBook (or opening): do nothing, keep completely invisible and idle
             wasZeroTurn = true
             win.alphaValue = 0.0
             mv.isPaused = true
         }
+    }
+    
+    public func stopOverlay() {
+        wasZeroTurn = true
+        window?.alphaValue = 0.0
+        metalView?.isPaused = true
+        metalView?.currentTurn = 0.0
     }
     
     public func captureScreenAsync() {

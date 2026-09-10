@@ -21,7 +21,12 @@ public final class ScreenCapture {
         
         // Probe via ScreenCaptureKit: if we can list external windows, permission is active
         do {
-            let content = try await SCShareableContent.current
+            let content: SCShareableContent
+            if #available(macOS 14.4, *) {
+                content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+            } else {
+                content = try await SCShareableContent.current
+            }
             let currentPID = NSRunningApplication.current.processIdentifier
             let otherWindows = content.windows.filter { $0.owningApplication?.processID != currentPID }
             if !otherWindows.isEmpty {
@@ -101,7 +106,12 @@ public final class ScreenCapture {
     /// Live display capture using ScreenCaptureKit
     public func captureLiveScreen() async -> CGImage? {
         do {
-            let content = try await SCShareableContent.current
+            let content: SCShareableContent
+            if #available(macOS 14.4, *) {
+                content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+            } else {
+                content = try await SCShareableContent.current
+            }
             guard let display = content.displays.first else { return nil }
             
             // Exclude our own app's windows
