@@ -356,10 +356,13 @@ public final class OverlayWindowController: NSObject {
     /// entry point for the menu bar and settings panel. One cancellable task;
     /// texture-generation newest-wins arbitrates overlap. Dropping the newest
     /// behind an in-flight fetch once showed stale frames, so we never drop.
-    /// Always half-res: the sharp LOD<=0.15 path almost never fires past
-    /// turn>0 (radius ramps immediately), so full-res buys nothing visible
-    /// while quadrupling bytes — and alternating full/cold with half/warm
-    /// shows ping-ponged sharpness across folds. Honest soft-start, always.
+    /// Always native Retina. A half-res capture was tried to save bytes, on
+    /// the theory that the sharp path barely fires once the radius ramps. That
+    /// holds only for the deep-blur tail: the shader's low-radius mix and its
+    /// sharp path both sample LOD 0 directly, so a downscaled texture shows
+    /// upscaled text as blocks — and because the blur radius comes from
+    /// `uiPixel = 2.0 / imageSize`, halving the texture doubles the radius in
+    /// point terms and starves the Vogel disc, which reads as pixelation.
     public func captureScreenAsync() {
         foldTask?.cancel()
         AppSettings.shared.isScreenCaptureDormant = false
@@ -372,7 +375,10 @@ public final class OverlayWindowController: NSObject {
         // pattern is Sendable-clean (proven by typecheck, Swift 6 mode).
         foldTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            let image = await ScreenCapture.shared.fetchImage(scaleFactor: 0.5)
+            // Native Retina (scaleFactor 1.0): the fold shader's blur radius is
+            // calibrated to 2 texels per point, so a downscaled capture both
+            // softens the fold-start frame and starves the blur kernel.
+            let image = await ScreenCapture.shared.fetchImage()
             if let image {
                 self.metalView?.updateImage(image)
                 AppSettings.shared.lastCaptureDate = Date()

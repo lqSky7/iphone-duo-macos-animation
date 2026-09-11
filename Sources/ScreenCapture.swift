@@ -105,10 +105,13 @@ public final class ScreenCapture {
     }
     
     /// Capture the screen or load appropriate image based on settings.
-    /// scaleFactor: 1.0 preserves the razor-sharp fold-start frame (compared
-    /// side-by-side with the live desktop); 0.5 quarters cost once blur hides
-    /// detail. Callers choose by fold turn.
-    public func fetchImage(scaleFactor: CGFloat = 0.5) async -> CGImage? {
+    /// scaleFactor is a multiplier on the panel's backing scale. It MUST stay
+    /// at 1.0 (native Retina): FoldShaders.metal derives its blur radius from
+    /// `uiPixel = 2.0 / imageSize`, which assumes exactly 2 texels per point.
+    /// A half-res capture both softens the fold-start frame (upscaled 2x, so
+    /// text reads as blocky) and doubles the blur radius in point terms, which
+    /// starves the Vogel disc and shows the tap pattern as pixelation.
+    public func fetchImage(scaleFactor: CGFloat = 1.0) async -> CGImage? {
         let settings = AppSettings.shared
         
         switch settings.imageSourceMode {
@@ -141,7 +144,8 @@ public final class ScreenCapture {
     /// Live display capture using ScreenCaptureKit.
     /// One-shot SCScreenshotManager (never a streaming SCStream): no stream
     /// setup/teardown, no queueDepth memory.
-    public func captureLiveScreen(scaleFactor: CGFloat = 0.5) async -> CGImage? {
+    /// scaleFactor 1.0 = native Retina, which the fold shader requires.
+    public func captureLiveScreen(scaleFactor: CGFloat = 1.0) async -> CGImage? {
         do {
             let content = try await freshShareableContent()
             guard let display = Self.preferredDisplay(from: content) else { return nil }

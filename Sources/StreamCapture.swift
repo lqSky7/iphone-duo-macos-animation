@@ -154,19 +154,25 @@ public final class StreamCapture: NSObject, @unchecked Sendable {
             let pid = NSRunningApplication.current.processIdentifier
             let excluded = content.windows.filter { $0.owningApplication?.processID == pid }
             let filter = SCContentFilter(display: display, excludingWindows: excluded)
-            // Half of native pixels: the fold shader provably cannot resolve
-            // more (blur mix + LOD 1.85 cap over 3 mip levels), so full-res
-            // would quadruple resident + encode + blit bytes for zero pixels.
+            // Native Retina, deliberately NOT halved. Halving looked free
+            // because the deep-blur phase cannot resolve full detail, but the
+            // shader is resolution-dependent in two places: its sharp path and
+            // its low-radius mix (both sample LOD 0 directly), and its blur
+            // radius is derived from `uiPixel = 2.0 / imageSize`, which assumes
+            // 2 texels per point. A half-res texture therefore both upscales
+            // text into visible blocks and doubles the blur radius, starving
+            // the Vogel disc so the tap pattern reads as pixelation.
             // Cursor stays out: a frozen cursor over live desktop reads as bug.
             // NSScreen is main-thread-only: resolve the scale on MainActor.
             let scale = await MainActor.run { NSScreen.main?.backingScaleFactor ?? 2.0 }
             let config = SCStreamConfiguration()
-            config.width = max(2, Int(Double(display.width) * Double(scale) * 0.5))
-            config.height = max(2, Int(Double(display.height) * Double(scale) * 0.5))
+            config.width = max(2, Int(Double(display.width) * Double(scale)))
+            config.height = max(2, Int(Double(display.height) * Double(scale)))
             config.minimumFrameInterval = CMTime(value: 1, timescale: 60)
             // Documented queue floor is 3; below risks start-rejection on
             // stricter OS releases. Newest-only consumer + complete-gate mean
-            // the extra resident frame (~6-12MB half-res) buys compliance.
+            // the extra resident frame (~24-48MB at native Retina) buys
+            // compliance.
             config.queueDepth = 3
             config.showsCursor = false
             config.capturesAudio = false
