@@ -105,6 +105,8 @@ public final class AppSettings: ObservableObject {
     @Published public var hasScreenRecordingPermission: Bool = false
     @Published public var lastCaptureDate: Date? = nil
     @Published public var isScreenCaptureDormant: Bool = true
+
+    private var appActiveObserver: NSObjectProtocol?
     
     private init() {
         let defaults = UserDefaults.standard
@@ -127,7 +129,7 @@ public final class AppSettings: ObservableObject {
         self.automaticallyCheckForUpdates = defaults.object(forKey: kAutomaticallyCheckForUpdates) != nil ? defaults.bool(forKey: kAutomaticallyCheckForUpdates) : true
         
         // Listen for app becoming active to re-check permissions immediately
-        NotificationCenter.default.addObserver(
+        appActiveObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didBecomeActiveNotification,
             object: nil,
             queue: .main
@@ -136,6 +138,12 @@ public final class AppSettings: ObservableObject {
         }
         
         refreshPermissions()
+    }
+
+    deinit {
+        if let token = appActiveObserver {
+            NotificationCenter.default.removeObserver(token)
+        }
     }
     
     public func refreshPermissions() {
