@@ -35,6 +35,7 @@ public final class AppSettings: ObservableObject {
     private let kEnableLockScreenPriority = "mactilt_enable_lock_screen_priority"
     private let kHasCompletedOnboarding = "mactilt_hasCompletedOnboarding"
     private let kAutomaticallyCheckForUpdates = "mactilt_automaticallyCheckForUpdates"
+    private let kHideMenuBarIcon = "mactilt_hideMenuBarIcon"
     
     // MARK: - Customizable Animation Options
     @Published public var automaticallyCheckForUpdates: Bool {
@@ -77,6 +78,15 @@ public final class AppSettings: ObservableObject {
         didSet {
             UserDefaults.standard.set(showAngleInMenuBar, forKey: kShowAngleInMenuBar)
             MenuBarController.shared.refreshMenuBarTitle()
+        }
+    }
+    
+    /// Hides the status bar icon entirely. The control panel stays reachable by
+    /// relaunching macTilt from Finder, which reopens the panel.
+    @Published public var hideMenuBarIcon: Bool {
+        didSet {
+            UserDefaults.standard.set(hideMenuBarIcon, forKey: kHideMenuBarIcon)
+            MenuBarController.shared.applyMenuBarIconVisibility()
         }
     }
     
@@ -125,6 +135,7 @@ public final class AppSettings: ObservableObject {
         self.reflectionIntensity = defaults.object(forKey: kReflectionIntensity) != nil ? defaults.double(forKey: kReflectionIntensity) : 0.0
         
         self.showAngleInMenuBar = defaults.object(forKey: kShowAngleInMenuBar) != nil ? defaults.bool(forKey: kShowAngleInMenuBar) : true
+        self.hideMenuBarIcon = defaults.object(forKey: kHideMenuBarIcon) != nil ? defaults.bool(forKey: kHideMenuBarIcon) : false
         self.enableLockScreenPriority = defaults.object(forKey: kEnableLockScreenPriority) != nil ? defaults.bool(forKey: kEnableLockScreenPriority) : true
         self.automaticallyCheckForUpdates = defaults.object(forKey: kAutomaticallyCheckForUpdates) != nil ? defaults.bool(forKey: kAutomaticallyCheckForUpdates) : true
         

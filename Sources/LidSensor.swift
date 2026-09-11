@@ -361,13 +361,6 @@ public final class LidSensor {
         AppSettings.shared.isClosing = true
     }
     
-    public func triggerPreviewAnimation() {
-        animateFold()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
-            self?.animateUnfold()
-        }
-    }
-    
     public func start() {
         guard timer == nil else { return }
         // stop() removes wake observers and closes HID state; rebuild both

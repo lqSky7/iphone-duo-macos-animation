@@ -35,6 +35,17 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     
+    /// Escape hatch for the "Hide Menu Bar Icon" setting: with no status item and
+    /// an .accessory activation policy there is no Dock icon either, so
+    /// relaunching macTilt from Finder is the only way back. Reopen the control
+    /// panel in that case instead of activating to nothing.
+    public func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag {
+            MenuBarController.shared.openControlPanel()
+        }
+        return true
+    }
+    
     public func applicationWillTerminate(_ notification: Notification) {
         LidSensor.shared.stop()
     }

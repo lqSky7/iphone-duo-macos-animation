@@ -361,6 +361,27 @@ public struct LiquidGlassControlPanel: View {
                     
                     Toggle("", isOn: $settings.showAngleInMenuBar)
                         .labelsHidden()
+                        .disabled(settings.hideMenuBarIcon)
+                }
+                
+                Divider()
+                
+                // Hide Status Icon Row
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Hide Menu Bar Icon")
+                            .font(.subheadline)
+                        Text("To bring it back, open macTilt again from Applications.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    InfoButton("Hide Menu Bar Icon", content: "Removes macTilt from the menu bar completely. The app keeps running and the fold animation keeps working. Reopen macTilt from Applications to show this control panel again.")
+                    
+                    Spacer()
+                    
+                    Toggle("", isOn: $settings.hideMenuBarIcon)
+                        .labelsHidden()
                 }
             }
         }
@@ -441,26 +462,6 @@ public struct LiquidGlassControlPanel: View {
                     
                     Toggle("", isOn: $settings.enableLockScreenPriority)
                         .labelsHidden()
-                }
-                
-                Divider()
-                
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Preview Fold Animation")
-                            .font(.subheadline)
-                        Text(settings.isHardwareSensor ? "Test full fold-and-unfold transition sequence." : "Simulate auto sleep & wake animation (MacBook Neo / M1 mode).")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                    Spacer()
-                    
-                    Button("Trigger Fold Preview") {
-                        LidSensor.shared.triggerPreviewAnimation()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
                 }
             }
         }

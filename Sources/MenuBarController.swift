@@ -45,29 +45,12 @@ public final class MenuBarController: NSObject, NSWindowDelegate {
         
         menu.addItem(NSMenuItem.separator())
         
+        // Deliberately minimal: the control panel owns every other action
+        // (permissions, re-capture, interactive preview, update check). Keeping
+        // duplicates here made the menu a second, staler copy of the panel.
         let openSettings = NSMenuItem(title: "Control Panel & Settings...", action: #selector(openControlPanel), keyEquivalent: ",")
         openSettings.target = self
         menu.addItem(openSettings)
-        
-        let welcomeItem = NSMenuItem(title: "Welcome Guide & Permissions...", action: #selector(openOnboardingWindow), keyEquivalent: "")
-        welcomeItem.target = self
-        menu.addItem(welcomeItem)
-        
-        let previewItem = NSMenuItem(title: "Trigger Fold Animation Preview", action: #selector(triggerFoldPreview), keyEquivalent: "p")
-        previewItem.target = self
-        menu.addItem(previewItem)
-        
-        let testToggle = NSMenuItem(title: "Toggle Test Preview Slider", action: #selector(toggleTestMode), keyEquivalent: "t")
-        testToggle.target = self
-        menu.addItem(testToggle)
-        
-        let captureItem = NSMenuItem(title: "Re-capture Screen Snapshot", action: #selector(recaptureScreen), keyEquivalent: "r")
-        captureItem.target = self
-        menu.addItem(captureItem)
-        
-        let checkUpdateItem = NSMenuItem(title: "Check for Updates...", action: #selector(checkForUpdates), keyEquivalent: "u")
-        checkUpdateItem.target = self
-        menu.addItem(checkUpdateItem)
         
         menu.addItem(NSMenuItem.separator())
         
@@ -78,7 +61,14 @@ public final class MenuBarController: NSObject, NSWindowDelegate {
         item.menu = menu
         self.statusItem = item
         
+        applyMenuBarIconVisibility()
         refreshMenuBarTitle()
+    }
+    
+    /// Single source of truth for status item visibility. Called at setup and
+    /// from AppSettings.hideMenuBarIcon.didSet.
+    public func applyMenuBarIconVisibility() {
+        statusItem?.isVisible = !AppSettings.shared.hideMenuBarIcon
     }
     
     public func updateAngleDisplay(angle: Double, isConnected: Bool) {
@@ -189,24 +179,6 @@ public final class MenuBarController: NSObject, NSWindowDelegate {
         }
     }
     
-    @objc private func triggerFoldPreview() {
-        LidSensor.shared.triggerPreviewAnimation()
-    }
-    
-    @objc private func toggleTestMode() {
-        let current = AppSettings.shared.isTestModeActive
-        AppSettings.shared.isTestModeActive = !current
-        if !current {
-            AppSettings.shared.testTurnValue = 0.5
-        } else {
-            AppSettings.shared.testTurnValue = 0.0
-        }
-    }
-    
-    @objc private func recaptureScreen() {
-        OverlayWindowController.shared.captureScreenAsync()
-    }
-    
     public func refreshUpdateMenuState() {
         DispatchQueue.main.async {
             if UpdateChecker.shared.updateAvailable {
@@ -216,10 +188,6 @@ public final class MenuBarController: NSObject, NSWindowDelegate {
                 self.updateMenuItem?.isHidden = true
             }
         }
-    }
-    
-    @objc private func checkForUpdates() {
-        UpdateChecker.shared.checkForUpdates(userInitiated: true)
     }
     
     @objc private func openLatestRelease() {
