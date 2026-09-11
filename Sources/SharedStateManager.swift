@@ -12,16 +12,25 @@ public final class SharedStateManager {
         public var magic: UInt32 = 0x4D544C54 // "MTLT"
         public var angle: Float
         public var turn: Float
+        /// Degrees between the start and end angles. Older builds left this slot as padding.
+        public var lidTravel: Float
         public var timestamp: Double
     }
     
     private init() {}
     
-    /// Broadcast current physical angle and turn progress to lock screen companion
-    public func broadcast(angle: Double, turn: Double) {
+    private var lastBroadcast: (angle: Float, turn: Float, lidTravel: Float)?
+    
+    /// Broadcast current physical angle, turn progress and lid travel to lock screen companion
+    public func broadcast(angle: Double, turn: Double, lidTravel: Double) {
+        let values = (angle: Float(angle), turn: Float(turn), lidTravel: Float(lidTravel))
+        // The sensor ticks at 60 Hz; skip rewriting the file while nothing changes.
+        if let last = lastBroadcast, last == values { return }
+        lastBroadcast = values
         var data = StateData(
-            angle: Float(angle),
-            turn: Float(turn),
+            angle: values.angle,
+            turn: values.turn,
+            lidTravel: values.lidTravel,
             timestamp: CACurrentMediaTime()
         )
         withUnsafeBytes(of: &data) { rawPtr in

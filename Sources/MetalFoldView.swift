@@ -8,6 +8,7 @@ public struct Uniforms {
     public var cover: SIMD2<Float>
     public var aspect: Float
     public var turn: Float
+    public var sweep: Float
     public var blurStrength: Float
     public var reflectionIntensity: Float
     
@@ -15,12 +16,14 @@ public struct Uniforms {
                 cover: SIMD2<Float> = .init(1, 1),
                 aspect: Float = 1.0,
                 turn: Float = 0.0,
+                sweep: Float = 0.0,
                 blurStrength: Float = 1.0,
                 reflectionIntensity: Float = 1.0) {
         self.imageSize = imageSize
         self.cover = cover
         self.aspect = aspect
         self.turn = turn
+        self.sweep = sweep
         self.blurStrength = blurStrength
         self.reflectionIntensity = reflectionIntensity
     }
@@ -35,6 +38,9 @@ public final class MetalFoldView: MTKView, MTKViewDelegate {
     private var imageSize: SIMD2<Float> = .init(1920, 1080)
     
     public var currentTurn: Float = 0.0
+    /// Degrees between the start and end angles. The picture stays at the start angle
+    /// while the glass turns through `currentTurn * lidTravel`.
+    public var lidTravel: Float = 112.0
     public var blurStrength: Float = 0.5
     public var reflectionIntensity: Float = 0.0
     
@@ -212,6 +218,7 @@ public final class MetalFoldView: MTKView, MTKViewDelegate {
             cover: cover,
             aspect: aspect,
             turn: currentTurn,
+            sweep: currentTurn * lidTravel * .pi / 180,
             blurStrength: blurStrength,
             reflectionIntensity: reflectionIntensity
         )
@@ -221,7 +228,7 @@ public final class MetalFoldView: MTKView, MTKViewDelegate {
         encoder.setFragmentSamplerState(samplerState, index: 0)
         encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 0)
         
-        encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6)
+        encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
         encoder.endEncoding()
         
         // Keep the overlay hidden until its first fresh frame has reached the GPU.

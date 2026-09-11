@@ -1,14 +1,38 @@
 #include <metal_stdlib>
 using namespace metal;
 
-constant float MAX_TILT = 0.84106867; // acos(1.0 / 1.5)
-constant float3 DARK = float3(0.003, 0.004, 0.005);
+// The picture freezes on the plane the display occupied at the start angle.
+// Closing the lid turns the glass toward the viewer about the hinge, and each
+// pixel shows the frozen picture along a fixed front-view ray: the picture
+// holds still in space while the display sweeps through it. The farther the
+// glass has swung away from the picture, the deeper the view behind it, so the
+// top of the display frosts over first and sinks into a dim glow of scattered
+// light, which fades to black by the end angle.
+
+constant float EYE_DISTANCE = 2.6;      // reference viewer on the picture's centre normal, in display heights
+constant float SWEEP_KNEE = 0.79;       // 45°: up to here the glass follows the lid exactly
+constant float MAX_SWEEP = 1.08;        // 62°: past the knee the glass eases toward this instead of turning edge-on
+constant float HAZE_DENSITY = 4.0;      // how quickly depth hides the picture
+constant float FROST_PER_DEPTH = 0.06;  // blur radius in picture heights per display height of depth
+constant float FADE_START = 0.45;       // fold progress where the whole display starts fading; black at the end angle
+constant float CORNER_RADIUS = 0.035;   // rounded top corners of the frozen picture, in display heights
+constant float EDGE_SOFTNESS = 2.0;     // picture edge falloff width, relative to the frost radius
+constant float GLOW = 0.2;              // share of the picture's light the frosted glass scatters
+constant float GLOW_REACH = 0.12;       // how far scattered light spills past the picture edge, in display heights
+constant float VIBRANCY = 0.3;          // extra saturation once fully frosted
+constant float AMBIENT_LOD = 6.0;       // mip level that supplies the scattered light
+constant float SMOKE = 0.22;            // how much the whole glass has dimmed by the knee, like smoked glass
+constant float3 VOID_COLOR = float3(0.003, 0.004, 0.005);
+
+constant int FROST_TAPS = 12;
+constant float GOLDEN_ANGLE = 2.39996323;
 
 struct Uniforms {
-    float2 imageSize;
-    float2 cover;
-    float aspect;
-    float turn;
+    float2 imageSize;          // texture size in pixels
+    float2 cover;              // aspect-fill scale from picture to texture coordinates
+    float aspect;              // display width / height
+    float turn;                // fold progress: 0 at the start angle, 1 at the end angle
+    float sweep;               // radians the lid has turned away from the picture
     float blurStrength;
     float reflectionIntensity;
 };
@@ -19,151 +43,117 @@ struct VertexOut {
 };
 
 vertex VertexOut foldVertex(uint vid [[vertex_id]]) {
-    const float2 positions[6] = {
-        float2(-1.0, -1.0),
-        float2( 1.0, -1.0),
-        float2(-1.0,  1.0),
-        float2(-1.0,  1.0),
-        float2( 1.0, -1.0),
-        float2( 1.0,  1.0)
-    };
-    
+    // One oversized triangle covers the viewport without a diagonal seam.
+    float2 pos = float2(vid == 1 ? 3.0 : -1.0, vid == 2 ? 3.0 : -1.0);
     VertexOut out;
-    float2 pos = positions[vid];
     out.position = float4(pos, 0.0, 1.0);
     // UV origin: (0,0) at top-left, (1,1) at bottom-right
     out.uv = float2(pos.x * 0.5 + 0.5, 0.5 - pos.y * 0.5);
     return out;
 }
 
-inline float3 sampleSmoothMatteBlur(texture2d<float> tex,
-                                    sampler s,
-                                    float2 uv,
-                                    float radius,
-                                    float2 cover,
-                                    float2 uiPixel,
-                                    float2 screenCoord) {
-    float2 tuv = (uv - 0.5) * cover + 0.5;
-    
-    // When radius is near zero, return razor-sharp native Retina sample at level 0
-    if (radius <= 0.15) {
-        return tex.sample(s, tuv, level(0.0)).rgb;
-    }
-    
-    // CRITICAL FIX FOR PIXELATION:
-    // Previously, `lod = log2(radius)` scaled unchecked into levels 4-6 (45x29 texels),
-    // causing massive pixel blocks and severe aliasing that worsened with tilt.
-    //
-    // By keeping the base LOD tightly bounded (capped at 1.85), texels are never larger
-    // than 3-4 physical screen pixels. Combined with a dense 32-sample Vogel Disc
-    // (Golden Angle spiral) and trilinear filtering, the blur is 100% continuous,
-    // velvety, and free of blocky pixelation at all tilt angles.
-    float baseLod = clamp(log2(max(1.0, radius * 0.18)), 0.0, 1.85);
-    
-    // Subtle sub-pixel micro-rotation per screen pixel eliminates ring banding
-    // and produces a natural, tactile frosted-glass matte dispersion.
-    float rot = (fract(sin(dot(screenCoord, float2(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.35;
-    float cosRot = cos(rot);
-    float sinRot = sin(rot);
-    
-    float3 accum = float3(0.0);
-    float totalWeight = 0.0;
-    
-    // 32-sample Vogel Disc (Golden Angle Fermat Spiral)
-    constexpr int NUM_SAMPLES = 32;
-    constexpr float GOLDEN_ANGLE = 2.39996323; // pi * (3.0 - sqrt(5.0))
-    
-    for (int i = 0; i < NUM_SAMPLES; i++) {
-        float fi = float(i);
-        float theta = fi * GOLDEN_ANGLE;
-        // Square root progression provides uniform area density across the disc
-        float r = sqrt((fi + 0.5) / float(NUM_SAMPLES));
-        
-        // Direction rotated by micro-jitter
-        float uX = cos(theta);
-        float uY = sin(theta);
-        float dirX = uX * cosRot - uY * sinRot;
-        float dirY = uX * sinRot + uY * cosRot;
-        
-        float2 offset = float2(dirX, dirY) * (r * radius * uiPixel);
-        float2 sampleUV = clamp(tuv + offset, 0.0, 1.0);
-        
-        // Gaussian optical falloff from center of blur disc
-        float weight = exp(-2.3 * r * r);
-        
-        // Center samples draw fine details; perimeter samples blend into smooth mip
-        float sampleLod = mix(0.0, baseLod, smoothstep(0.1, 0.85, r));
-        
-        accum += tex.sample(s, sampleUV, level(sampleLod)).rgb * weight;
-        totalWeight += weight;
-    }
-    
-    float3 blurred = accum / totalWeight;
-    
-    // Soft matte ambient scatter (frosted glass diffusion characteristic)
-    float matteScatter = 0.015 * smoothstep(0.0, 20.0, radius);
-    blurred = blurred + float3(matteScatter);
-    
-    // Smooth transition from sharp to matte blur as fold begins
-    float3 sharp = tex.sample(s, tuv, level(0.0)).rgb;
-    return mix(sharp, blurred, smoothstep(0.0, 2.0, radius));
+// Interleaved gradient noise: a stable per-pixel value in [0, 1).
+inline float gradientNoise(float2 pixel) {
+    return fract(52.9829189 * fract(dot(pixel, float2(0.06711056, 0.00583715))));
+}
+
+// Texture coordinates for a picture position, clamped to the picture.
+inline float2 textureUV(float2 uv, float2 cover) {
+    return (saturate(uv) - 0.5) * cover + 0.5;
+}
+
+// Signed distance to the frozen picture in display heights: rounded top corners,
+// square bottom corners along the hinge.
+inline float pictureDistance(float2 hit, float aspect, float radius) {
+    float2 p = hit - float2(0.0, 0.5);
+    float r = p.y > 0.0 ? radius : 0.0;
+    float2 q = abs(p) - float2(0.5 * aspect, 0.5) + r;
+    return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
 }
 
 fragment float4 foldFragment(VertexOut in [[stage_in]],
                              texture2d<float> tex [[texture(0)]],
                              sampler s [[sampler(0)]],
                              constant Uniforms &u [[buffer(0)]]) {
-    float turn = clamp(u.turn, 0.0, 1.0);
-    float2 uiPixel = 2.0 / max(float2(1.0), u.imageSize);
-    
-    if (turn <= 0.00001) {
-        return float4(sampleSmoothMatteBlur(tex, s, in.uv, 0.0, u.cover, uiPixel, in.position.xy), 1.0);
+    if (u.turn <= 0.0 && u.sweep <= 0.0) {
+        return float4(tex.sample(s, (in.uv - 0.5) * u.cover + 0.5, level(0.0)).rgb, 1.0);
     }
-    
-    // Up-to-Down Clamshell Fold: Hinge is at the bottom edge (in.uv.y = 1.0)
-    float fromHinge = clamp(1.0 - in.uv.y, 0.0, 1.0);
-    
-    // Scale bend smoothly across the ENTIRE 0.0 -> 1.0 closing turn
-    float bend = turn * MAX_TILT;
-    float cosine = cos(bend);
-    float sine = sin(bend);
-    
-    // Stable perspective projection that spans the whole closing arc without exploding
-    float invAspect = 1.0 / max(0.1, u.aspect);
-    float eye = 3.2 * max(invAspect, 1.0);
-    float depth = fromHinge * (0.80 * invAspect) * sine;
-    float perspective = eye / max(0.01, (eye - depth));
-    
-    float2 plane;
-    plane.y = 1.0 - fromHinge * cosine * perspective;
-    plane.x = 0.5 + (in.uv.x - 0.5) * perspective;
-    
-    // Defocus blur: smooth progression that remains continuous and silky
-    float blurSpread = pow(smoothstep(0.0, 0.85, fromHinge), 1.2);
-    float motion = smoothstep(0.0, 1.0, turn) * mix(0.20, 1.0, blurSpread);
-    float radius = 56.0 * motion * max(0.05, u.blurStrength);
-    
-    // Side margins softness
-    float softness = fwidth(in.uv.x) + radius * 0.002;
-    float mask = 1.0 - smoothstep(0.5 - softness, 0.5 + softness, abs(plane.x - 0.5));
-    
-    // Sample texture using 32-sample Vogel disc continuous matte blur
-    float3 color = sampleSmoothMatteBlur(tex, s, plane, radius, u.cover, uiPixel, in.position.xy);
-    
-    // Glass refraction & reflection
-    float glass = sine * pow(fromHinge, 1.5);
-    color *= 1.0 - 0.20 * glass;
-    float reflection = exp(-pow((fromHinge - 0.65) / 0.35, 2.0)) * sine;
-    color += float3(0.82, 0.85, 0.86) * reflection * (0.025 * u.reflectionIntensity);
-    
-    // Smooth void fade: gradual falloff that only fully darkens at the very end
-    float fadeDistance = clamp((fromHinge - 0.20) / 0.80, 0.0, 1.0);
-    float voidAmount = pow(turn, 1.1) * fadeDistance;
-    color *= (1.0 - 0.80 * voidAmount);
-    
-    // Final closure into deep black right as the lid completely shuts (turn > 0.90)
-    float finalClose = 1.0 - smoothstep(0.90, 1.0, turn);
-    color *= finalClose;
-    
-    return float4(mix(DARK, color, mask * finalClose), 1.0);
+
+    // Near edge-on the whole display would map onto a sliver of the picture, so ease off past the knee.
+    float sweep = max(u.sweep, 0.0);
+    if (sweep > SWEEP_KNEE) {
+        float span = MAX_SWEEP - SWEEP_KNEE;
+        sweep = SWEEP_KNEE + span * (1.0 - exp((SWEEP_KNEE - sweep) / span));
+    }
+    float height = 1.0 - in.uv.y;   // 0 at the hinge, 1 at the top edge
+
+    // Glass position in picture space (display heights): x across, y up the picture, z toward the viewer.
+    float3 glass = float3((in.uv.x - 0.5) * u.aspect, height * cos(sweep), height * sin(sweep));
+
+    // Follow the fixed front-view ray through the glass back to the picture plane (z = 0).
+    const float3 eye = float3(0.0, 0.5, EYE_DISTANCE);
+    float2 hit = eye.xy + (glass.xy - eye.xy) * (eye.z / (eye.z - glass.z));
+    float2 uv = float2(hit.x / u.aspect + 0.5, 1.0 - hit.y);
+
+    // Screen-space footprint, measured before any early exit.
+    float2 texels = u.imageSize * u.cover;
+    float2 dx = dfdx(uv) * texels;
+    float2 dy = dfdy(uv) * texels;
+    float baseLod = max(0.0, 0.5 * log2(max(dot(dx, dx), dot(dy, dy))));
+    float pixelSpan = max(max(fwidth(hit.x), fwidth(hit.y)), 1e-5);
+
+    float closing = 1.0 - smoothstep(FADE_START, 1.0, saturate(u.turn));
+    if (closing < 0.004) {
+        return float4(VOID_COLOR, 1.0);
+    }
+
+    float depth = glass.z;
+    float radius = u.blurStrength * FROST_PER_DEPTH * depth * texels.y;   // in texels
+    float2 center = textureUV(uv, u.cover);
+
+    // Soft, rounded picture edge; the falloff widens with the frost and stays outside the picture.
+    float corner = CORNER_RADIUS * smoothstep(0.0, 0.35, sweep);
+    float edge = pictureDistance(hit, u.aspect, corner);
+    float softness = max(pixelSpan, EDGE_SOFTNESS * radius / texels.y);
+    float coverage = 1.0 - smoothstep(0.0, softness, edge);
+    float visible = coverage * exp(-HAZE_DENSITY * depth * depth);
+
+    // Frosted glass scatters some of the picture's light where the picture itself is hidden.
+    float3 ambient = tex.sample(s, center, level(AMBIENT_LOD)).rgb;
+    float3 color = ambient * (GLOW * exp(-max(edge, 0.0) / GLOW_REACH));
+
+    if (visible > 0.004) {
+        float3 picture;
+        if (radius < 0.5) {
+            picture = tex.sample(s, center, level(baseLod)).rgb;
+        } else {
+            // Vogel disc averaged in roughly linear light, so bright details bloom instead of greying out.
+            float lod = max(baseLod, log2(radius * 0.5));
+            float2 reach = radius / texels;
+            float spin = 6.2831853 * gradientNoise(in.position.xy);
+            float3 sum = 0.0;
+            float weight = 0.0;
+            for (int i = 0; i < FROST_TAPS; i++) {
+                float r = sqrt((float(i) + 0.5) / float(FROST_TAPS));
+                float a = float(i) * GOLDEN_ANGLE + spin;
+                float w = exp(-2.0 * r * r);
+                float3 tap = tex.sample(s, textureUV(uv + float2(cos(a), sin(a)) * (r * reach), u.cover), level(lod)).rgb;
+                sum += tap * tap * w;
+                weight += w;
+            }
+            picture = sqrt(sum / weight);
+            float luma = dot(picture, float3(0.2126, 0.7152, 0.0722));
+            picture = saturate(mix(float3(luma), picture, 1.0 + VIBRANCY * saturate(radius / 24.0)));
+        }
+        color = mix(color, picture * (1.0 - SMOKE * smoothstep(0.0, SWEEP_KNEE, sweep)), visible);
+    }
+
+    // A soft reflection band drifts down the glass as it tilts.
+    float lift = sin(sweep);
+    float band = exp(-pow((height - 0.85 + 0.5 * lift) / 0.28, 2.0));
+    float3 sheen = float3(0.82, 0.85, 0.86) * (band * lift * 0.035 * u.reflectionIntensity);
+
+    float3 result = (color + sheen) * closing;
+    result += (gradientNoise(in.position.xy + 61.0) - 0.5) / 255.0;   // dither the long dark ramp
+    return float4(result, 1.0);
 }

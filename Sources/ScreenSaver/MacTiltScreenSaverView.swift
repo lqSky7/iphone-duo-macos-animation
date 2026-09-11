@@ -81,6 +81,9 @@ public final class MacTiltScreenSaverView: ScreenSaverView {
         }
         
         targetTurn = Double(state.turn)
+        if state.lidTravel > 0 && state.lidTravel <= 180 {
+            metalView?.lidTravel = state.lidTravel
+        }
         
         // BATTERY EFFICIENCY ENGINE:
         // When lid is stationary or fully open/closed, sleep GPU completely!

@@ -197,6 +197,7 @@ public final class OverlayWindowController: NSObject {
         // While locked, follow every sensor update without an elapsed-time cutoff.
         // Returning to the open angle hides the overlay; another close can start it again.
         mv.currentTurn = Float(visibleTurn)
+        mv.lidTravel = Float(AppSettings.shared.startTiltAngle - AppSettings.shared.endTiltAngle)
         mv.blurStrength = Float(AppSettings.shared.blurStrength)
         mv.reflectionIntensity = Float(AppSettings.shared.reflectionIntensity)
         

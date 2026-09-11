@@ -272,7 +272,7 @@ public struct LiquidGlassControlPanel: View {
                         Text("开始折叠角度")
                             .font(.subheadline)
                         
-                        InfoButton("起始角度", content: "屏幕开合角度大于此值时，MacBook 保持正常使用状态。合盖至此角度以下时，开始折叠动画。")
+                        InfoButton("起始角度", content: "屏幕开合角度大于此值时，MacBook 保持正常使用状态。合盖至此角度以下时，画面会停留在这个角度，屏幕像玻璃一样从它前面合上，离铰链越远越暗、越模糊。")
                         
                         Spacer()
                         
