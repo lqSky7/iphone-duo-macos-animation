@@ -27,36 +27,36 @@ public final class MenuBarController: NSObject, NSWindowDelegate {
         
         let menu = NSMenu()
         
-        let header = NSMenuItem(title: "macTilt Clamshell Animation", action: nil, keyEquivalent: "")
+        let header = NSMenuItem(title: "macTilt 合盖动画", action: nil, keyEquivalent: "")
         header.isEnabled = false
         menu.addItem(header)
         
-        let angleItem = NSMenuItem(title: "Lid Sensor: Initializing...", action: nil, keyEquivalent: "")
+        let angleItem = NSMenuItem(title: "开合传感器：正在初始化…", action: nil, keyEquivalent: "")
         angleItem.isEnabled = false
         self.angleMenuItem = angleItem
         menu.addItem(angleItem)
         
         menu.addItem(NSMenuItem.separator())
         
-        let openSettings = NSMenuItem(title: "Control Panel & Settings...", action: #selector(openControlPanel), keyEquivalent: ",")
+        let openSettings = NSMenuItem(title: "控制面板与设置…", action: #selector(openControlPanel), keyEquivalent: ",")
         openSettings.target = self
         menu.addItem(openSettings)
         
-        let welcomeItem = NSMenuItem(title: "Welcome Guide & Permissions...", action: #selector(openOnboardingWindow), keyEquivalent: "")
+        let welcomeItem = NSMenuItem(title: "使用指南与权限…", action: #selector(openOnboardingWindow), keyEquivalent: "")
         welcomeItem.target = self
         menu.addItem(welcomeItem)
         
-        let testToggle = NSMenuItem(title: "Toggle Test Preview Slider", action: #selector(toggleTestMode), keyEquivalent: "t")
+        let testToggle = NSMenuItem(title: "开启／关闭动画预览", action: #selector(toggleTestMode), keyEquivalent: "t")
         testToggle.target = self
         menu.addItem(testToggle)
         
-        let captureItem = NSMenuItem(title: "Re-capture Screen Snapshot", action: #selector(recaptureScreen), keyEquivalent: "r")
+        let captureItem = NSMenuItem(title: "重新捕获屏幕快照", action: #selector(recaptureScreen), keyEquivalent: "r")
         captureItem.target = self
         menu.addItem(captureItem)
         
         menu.addItem(NSMenuItem.separator())
         
-        let quitItem = NSMenuItem(title: "Quit macTilt", action: #selector(quitApp), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: "退出 macTilt", action: #selector(quitApp), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
         
@@ -80,10 +80,10 @@ public final class MenuBarController: NSObject, NSWindowDelegate {
         
         if let angleItem = self.angleMenuItem {
             if isConnected {
-                let status = AppSettings.shared.isClosing ? "Closing (\(Int(angle))°)" : "Idle (\(Int(angle))°)"
-                angleItem.title = "Lid: \(status)"
+                let status = AppSettings.shared.isClosing ? "正在合盖（\(Int(angle))°）" : "空闲（\(Int(angle))°）"
+                angleItem.title = "屏幕：\(status)"
             } else {
-                angleItem.title = "Lid Sensor: Disconnected"
+                angleItem.title = "开合传感器：未连接"
             }
         }
     }
@@ -116,6 +116,7 @@ public final class MenuBarController: NSObject, NSWindowDelegate {
         win.titleVisibility = .hidden
         win.isMovableByWindowBackground = true
         win.contentViewController = NSHostingController(rootView: LiquidGlassControlPanel())
+        win.title = "macTilt 控制面板"
         win.isReleasedWhenClosed = false
         
         self.controlPanelWindow = win
@@ -148,6 +149,7 @@ public final class MenuBarController: NSObject, NSWindowDelegate {
         }
         
         win.contentViewController = NSHostingController(rootView: onboardingView)
+        win.title = "macTilt 使用指南"
         win.isReleasedWhenClosed = false
         
         self.onboardingWindow = win

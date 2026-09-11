@@ -12,10 +12,10 @@ public enum ImageSourceMode: Int, CaseIterable, Identifiable {
     
     public var title: String {
         switch self {
-        case .liveCapture: return "Live Screen Capture"
-        case .desktopWallpaper: return "Desktop Wallpaper"
-        case .bundledArtwork: return "Bundled Artwork"
-        case .customImage: return "Custom Image"
+        case .liveCapture: return "实时屏幕捕获"
+        case .desktopWallpaper: return "桌面壁纸"
+        case .bundledArtwork: return "内置图片"
+        case .customImage: return "自定义图片"
         }
     }
 }
@@ -83,6 +83,7 @@ public final class AppSettings: ObservableObject {
     }
     
     // MARK: - Real-time State
+    @Published public var lockScreenStatus = "正在初始化锁屏显示接口…"
     @Published public var isTestModeActive: Bool = false {
         didSet {
             if !isTestModeActive {
@@ -94,7 +95,7 @@ public final class AppSettings: ObservableObject {
     @Published public var currentLidAngle: Double = 120.0
     @Published public var isSensorConnected: Bool = false
     @Published public var isClosing: Bool = false
-    @Published public var sensorStatusMessage: String = "Initializing sensor..."
+    @Published public var sensorStatusMessage: String = "正在初始化传感器…"
     @Published public var hasScreenRecordingPermission: Bool = false
     @Published public var lastCaptureDate: Date? = nil
     @Published public var isScreenCaptureDormant: Bool = true

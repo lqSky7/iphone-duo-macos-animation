@@ -154,8 +154,7 @@ public final class ScreenCapture {
         let fallbackPaths = [
             Bundle.main.bundlePath + "/Contents/Resources/default.png",
             Bundle.main.bundlePath + "/Resources/default.png",
-            CommandLine.arguments[0].split(separator: "/").dropLast().joined(separator: "/") + "/Resources/default.png",
-            "/Users/ca5/Desktop/iphone-duo-macos-animation/Resources/default.png"
+            CommandLine.arguments[0].split(separator: "/").dropLast().joined(separator: "/") + "/Resources/default.png"
         ]
         for path in fallbackPaths {
             if let img = NSImage(contentsOfFile: path),

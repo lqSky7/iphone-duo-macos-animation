@@ -8,29 +8,17 @@ INFO_PLIST="$DIR/Info.plist"
 
 echo "=== macTilt macOS Build & Install ==="
 
-# 1. Increment Build Number and Version Number
-if [ -f "$INFO_PLIST" ]; then
-    CURRENT_BUILD=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$INFO_PLIST" 2>/dev/null || echo "0")
-    NEW_BUILD=$((CURRENT_BUILD + 1))
-    /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $NEW_BUILD" "$INFO_PLIST"
-    
-    CURRENT_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$INFO_PLIST" 2>/dev/null || echo "1.0.0")
-    # Split version and increment patch number (e.g., 1.0.0 -> 1.0.1)
-    MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
-    MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
-    PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3)
-    if [ -z "$PATCH" ]; then PATCH=0; fi
-    NEW_PATCH=$((PATCH + 1))
-    NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
-    /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $NEW_VERSION" "$INFO_PLIST"
-    
-    echo "▶ Updated Version: $CURRENT_VERSION -> $NEW_VERSION"
-    echo "▶ Updated Build Number: $CURRENT_BUILD -> $NEW_BUILD"
-else
-    echo "Warning: Info.plist not found!"
-    NEW_VERSION="1.0.0"
-    NEW_BUILD="1"
-fi
+# Build metadata belongs in the generated bundle, never in the source plist.
+# Optional overrides: APP_VERSION=1.2.3 BUILD_NUMBER=42 SIGNING_IDENTITY=<SHA-1>
+INSTALL_APP=true
+case "${1:-}" in
+    "") ;;
+    --no-install) INSTALL_APP=false ;;
+    *) echo "Usage: $0 [--no-install]" >&2; exit 2 ;;
+esac
+NEW_VERSION="${APP_VERSION:-$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO_PLIST")}"
+NEW_BUILD="${BUILD_NUMBER:-$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$INFO_PLIST")}"
+SIGNING_IDENTITY="${SIGNING_IDENTITY:--}"
 
 # 2. Prepare Build Directory
 BUILD_DIR="$DIR/build"
@@ -77,6 +65,10 @@ rm -f "$BUILD_DIR/macTilt_arm64" "$BUILD_DIR/macTilt_x86_64"
 
 # 5. Copy Resources & Plist
 cp "$INFO_PLIST" "$CONTENTS_DIR/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $NEW_VERSION" "$CONTENTS_DIR/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $NEW_BUILD" "$CONTENTS_DIR/Info.plist"
+
+cp -R "$DIR/Resources/ThirdParty" "$RESOURCES_DIR/ThirdParty"
 
 # Generate or copy AppIcon
 if [ ! -f "$DIR/Resources/AppIcon.icns" ] && [ -f "$DIR/Resources/AppIcon.png" ]; then
@@ -105,8 +97,6 @@ fi
 
 if [ -d "$DIR/Resources/Untitled.icon" ]; then
     cp -R "$DIR/Resources/Untitled.icon" "$RESOURCES_DIR/Untitled.icon"
-elif [ -d "/Users/ca5/Desktop/Untitled.icon" ]; then
-    cp -R "/Users/ca5/Desktop/Untitled.icon" "$RESOURCES_DIR/Untitled.icon"
 fi
 
 if [ -f "$DIR/Resources/default.png" ]; then
@@ -151,14 +141,9 @@ fi
 
 # 7. Codesign App Bundle and Screen Saver
 echo "▶ Codesigning Application Bundle & Screen Saver..."
-SIGNING_IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null | grep "Apple Development" | head -n 1 | awk -F '"' '{print $2}')
-if [ -z "$SIGNING_IDENTITY" ]; then
-    SIGNING_IDENTITY="-"
-fi
-echo "▶ Using Signing Identity: $SIGNING_IDENTITY"
-if [ "$SIGNING_IDENTITY" != "-" ]; then
-    codesign --force --deep --sign "$SIGNING_IDENTITY" "$SAVER_BUNDLE"
-fi
+# Explicit identity overrides avoid ambiguous duplicate certificate names.
+# Default ad-hoc signing works without a developer account.
+codesign --force --deep --sign "$SIGNING_IDENTITY" "$SAVER_BUNDLE"
 
 # Copy signed Screen Saver into app resources
 cp -R "$SAVER_BUNDLE" "$RESOURCES_DIR/macTilt.saver"
@@ -181,7 +166,12 @@ if [ "$SIGNING_IDENTITY" != "-" ]; then
 fi
 echo "✔ DMG created and signed: $DMG_OUTPUT"
 
-# 8. Install to /Applications
+if [ "$INSTALL_APP" = false ]; then
+    echo "✔ Build complete: $APP_BUNDLE"
+    exit 0
+fi
+
+# 9. Install to /Applications
 INSTALL_TARGET="/Applications/macTilt.app"
 echo "▶ Installing to $INSTALL_TARGET..."
 

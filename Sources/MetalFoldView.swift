@@ -96,8 +96,7 @@ public final class MetalFoldView: MTKView, MTKViewDelegate {
         if library == nil {
             let possiblePaths = [
                 Bundle.main.bundlePath + "/Contents/Resources/FoldShaders.metal",
-                Bundle.main.bundlePath + "/FoldShaders.metal",
-                "/Users/ca5/Desktop/iphone-duo-macos-animation/Sources/FoldShaders.metal"
+                Bundle.main.bundlePath + "/FoldShaders.metal"
             ]
             for p in possiblePaths {
                 if let source = try? String(contentsOfFile: p, encoding: .utf8) {
@@ -123,8 +122,11 @@ public final class MetalFoldView: MTKView, MTKViewDelegate {
         self.pipelineState = try? dev.makeRenderPipelineState(descriptor: pipeDesc)
     }
     
-    public func updateImage(_ cgImage: CGImage) {
-        guard let dev = self.device else { return }
+    public var onNextFrameReady: (() -> Void)?
+
+    @discardableResult
+    public func updateImage(_ cgImage: CGImage) -> Bool {
+        guard let dev = self.device else { return false }
         
         let width = cgImage.width
         let height = cgImage.height
@@ -141,7 +143,7 @@ public final class MetalFoldView: MTKView, MTKViewDelegate {
         desc.mipmapLevelCount = levels
         desc.usage = [.shaderRead, .renderTarget]
         
-        guard let texture = dev.makeTexture(descriptor: desc) else { return }
+        guard let texture = dev.makeTexture(descriptor: desc) else { return false }
         
         // Render CGImage into level 0
         let colorSpace = CGColorSpaceCreateDeviceRGB()
@@ -156,7 +158,7 @@ public final class MetalFoldView: MTKView, MTKViewDelegate {
             bytesPerRow: bytesPerRow,
             space: colorSpace,
             bitmapInfo: bitmapInfo
-        ) else { return }
+        ) else { return false }
         
         context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
         if let data = context.data {
@@ -178,6 +180,7 @@ public final class MetalFoldView: MTKView, MTKViewDelegate {
         }
         
         self.currentTexture = texture
+        return true
     }
     
     // MARK: - MTKViewDelegate
@@ -221,6 +224,20 @@ public final class MetalFoldView: MTKView, MTKViewDelegate {
         encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6)
         encoder.endEncoding()
         
+        // Keep the overlay hidden until its first fresh frame has reached the GPU.
+        // A paused MTKView can otherwise expose the drawable from the lock screen.
+        if let ready = onNextFrameReady {
+            onNextFrameReady = nil
+            cb.addCompletedHandler { [weak self] buffer in
+                DispatchQueue.main.async {
+                    if buffer.status == .completed {
+                        ready()
+                    } else {
+                        self?.onNextFrameReady = ready
+                    }
+                }
+            }
+        }
         cb.present(drawable)
         cb.commit()
     }

@@ -19,10 +19,10 @@ public struct OnboardingView: View {
                     .shadow(color: Color.black.opacity(0.15), radius: 8, x: 0, y: 4)
                 
                 VStack(spacing: 4) {
-                    Text("Welcome to macTilt")
+                    Text("欢迎使用 macTilt")
                         .font(.system(size: 26, weight: .bold))
                     
-                    Text("Realistic 3D clamshell folding animation for your MacBook display.")
+                    Text("为 MacBook 屏幕带来逼真的 3D 合盖折叠动画。")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -36,22 +36,22 @@ public struct OnboardingView: View {
                 FeatureRow(
                     icon: "laptopcomputer",
                     iconColor: .blue,
-                    title: "Physical Clamshell Folding",
-                    subtitle: "Synchronized 1:1 with Apple's internal lid angle sensor. Folds seamlessly from up to down as you close the lid."
+                    title: "随合盖动作自然折叠",
+                    subtitle: "与 Apple 内置屏幕开合角度传感器一比一同步。合盖时，画面从上到下平滑折叠。"
                 )
                 
                 FeatureRow(
                     icon: "battery.100.bolt",
                     iconColor: .green,
-                    title: "Zero Idle Battery Impact",
-                    subtitle: "100% dormant during normal use with zero background polling. Captures are pre-armed strictly during physical closing motion."
+                    title: "闲置时零额外耗电",
+                    subtitle: "正常使用时完全休眠，无后台轮询。仅在实际合盖时准备屏幕捕获。"
                 )
                 
                 FeatureRow(
                     icon: "record.circle.fill",
                     iconColor: .orange,
-                    title: "Screen Recording Permission",
-                    subtitle: "Freezes your active workspace into 3D space when closing. Processed strictly on-device with no network access."
+                    title: "屏幕录制权限",
+                    subtitle: "合盖时，将当前桌面定格并呈现为 3D 动画。所有处理均在本机完成，无需联网。"
                 )
             }
             .padding(.horizontal, 28)
@@ -64,7 +64,7 @@ public struct OnboardingView: View {
                         .fill(settings.hasScreenRecordingPermission ? Color.green : Color.orange)
                         .frame(width: 9, height: 9)
                     
-                    Text(settings.hasScreenRecordingPermission ? "Screen Recording Permission Active" : "Screen Recording Permission Required")
+                    Text(settings.hasScreenRecordingPermission ? "已获得屏幕录制权限" : "需要屏幕录制权限")
                         .font(.subheadline)
                         .fontWeight(.semibold)
                     
@@ -75,7 +75,7 @@ public struct OnboardingView: View {
                             ScreenCapture.shared.requestPermission()
                             ScreenCapture.shared.openSettings()
                         }) {
-                            Text("Grant Access...")
+                            Text("前往授权…")
                         }
                         .buttonStyle(.borderedProminent)
                         .controlSize(.small)
@@ -84,7 +84,7 @@ public struct OnboardingView: View {
                 
                 if !settings.hasScreenRecordingPermission {
                     HStack {
-                        Text("After toggling access in System Settings, click Relaunch to apply.")
+                        Text("在系统设置中授权后，请点击“重新启动”使其生效。")
                             .font(.caption)
                             .foregroundColor(.secondary)
                         
@@ -93,7 +93,7 @@ public struct OnboardingView: View {
                         Button(action: {
                             ScreenCapture.shared.relaunchApp()
                         }) {
-                            Label("Relaunch", systemImage: "arrow.clockwise")
+                            Label("重新启动", systemImage: "arrow.clockwise")
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.mini)
@@ -118,7 +118,7 @@ public struct OnboardingView: View {
                     settings.hasCompletedOnboarding = true
                     onDismiss?()
                 }) {
-                    Text("Get Started")
+                    Text("开始使用")
                         .font(.headline)
                         .frame(minWidth: 140)
                 }

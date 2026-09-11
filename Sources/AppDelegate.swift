@@ -19,6 +19,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         sensor.start()
         
         // On first launch, open the Apple HCI Onboarding window; otherwise open the control panel
+        guard !CommandLine.arguments.contains("--background") else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             if !AppSettings.shared.hasCompletedOnboarding {
                 MenuBarController.shared.openOnboardingWindow()
@@ -28,6 +29,10 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     
+    public func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        false
+    }
+
     public func applicationWillTerminate(_ notification: Notification) {
         LidSensor.shared.stop()
     }

@@ -2,3 +2,21 @@ build/
 .DS_Store
 *.air
 *.metallib
+
+# Local build products and diagnostics
+work/
+*.app/
+*.saver/
+*.dmg
+*.dSYM/
+*.log
+
+# Local credentials and developer configuration
+.env
+.env.*
+!.env.example
+*.p12
+*.pfx
+*.mobileprovision
+*.provisionprofile
+build.local.sh
