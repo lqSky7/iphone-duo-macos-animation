@@ -32,6 +32,7 @@ public final class AppSettings: ObservableObject {
     private let kBlurStrength = "mactilt_blurStrength"
     private let kReflectionIntensity = "mactilt_reflectionIntensity"
     private let kShowAngleInMenuBar = "mactilt_showAngleInMenuBar"
+    private let kEnableLockScreenPriority = "mactilt_enable_lock_screen_priority"
     private let kHasCompletedOnboarding = "mactilt_hasCompletedOnboarding"
     
     // MARK: - Customizable Animation Options
@@ -74,6 +75,13 @@ public final class AppSettings: ObservableObject {
         }
     }
     
+    @Published public var enableLockScreenPriority: Bool {
+        didSet {
+            UserDefaults.standard.set(enableLockScreenPriority, forKey: kEnableLockScreenPriority)
+            OverlayWindowController.shared.updateWindowLevel()
+        }
+    }
+    
     // MARK: - Real-time State
     @Published public var isTestModeActive: Bool = false {
         didSet {
@@ -108,6 +116,7 @@ public final class AppSettings: ObservableObject {
         self.reflectionIntensity = defaults.object(forKey: kReflectionIntensity) != nil ? defaults.double(forKey: kReflectionIntensity) : 0.0
         
         self.showAngleInMenuBar = defaults.object(forKey: kShowAngleInMenuBar) != nil ? defaults.bool(forKey: kShowAngleInMenuBar) : true
+        self.enableLockScreenPriority = defaults.object(forKey: kEnableLockScreenPriority) != nil ? defaults.bool(forKey: kEnableLockScreenPriority) : true
         
         // Listen for app becoming active to re-check permissions immediately
         NotificationCenter.default.addObserver(

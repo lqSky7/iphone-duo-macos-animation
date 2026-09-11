@@ -60,7 +60,11 @@ public final class OverlayWindowController: NSObject {
         win.isOpaque = false
         win.backgroundColor = .clear
         win.hasShadow = false
-        win.level = .screenSaver
+        if AppSettings.shared.enableLockScreenPriority {
+            win.level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()) + 1)
+        } else {
+            win.level = .screenSaver
+        }
         win.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         win.ignoresMouseEvents = true
         win.alphaValue = 0.0
@@ -115,6 +119,15 @@ public final class OverlayWindowController: NSObject {
         window?.alphaValue = 0.0
         metalView?.isPaused = true
         metalView?.currentTurn = 0.0
+    }
+    
+    public func updateWindowLevel() {
+        guard let win = self.window else { return }
+        if AppSettings.shared.enableLockScreenPriority {
+            win.level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()) + 1)
+        } else {
+            win.level = .screenSaver
+        }
     }
     
     public func captureScreenAsync() {

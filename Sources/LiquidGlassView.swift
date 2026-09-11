@@ -50,6 +50,9 @@ public struct LiquidGlassControlPanel: View {
                     // Animation Physics & Shaders Card
                     animationPhysicsCard
                     
+                    // Lock Screen & Sleep Wake Card (Optional)
+                    lockScreenCard
+                    
                     // Interactive Test Slider Card
                     testPreviewCard
                 }
@@ -410,6 +413,30 @@ public struct LiquidGlassControlPanel: View {
                         }
                         Slider(value: $settings.reflectionIntensity, in: 0.0...2.5, step: 0.1)
                     }
+                }
+            }
+        }
+    }
+    
+    // MARK: - Lock Screen & Sleep Wake Card (Optional)
+    private var lockScreenCard: some View {
+        HCISectionCard(title: "Lock Screen & Sleep Wake", icon: "lock.shield") {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("High Priority Display Level")
+                            .font(.subheadline)
+                        Text("Elevates overlay priority to display during wake transitions.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    InfoButton("Lock Screen Wake", content: "macOS isolates the password Lock Screen for security. To see the animation unfold dynamically on wake, set a 1-minute password grace period in System Settings > Lock Screen, or use Apple Watch Auto-Unlock.")
+                    
+                    Spacer()
+                    
+                    Toggle("", isOn: $settings.enableLockScreenPriority)
+                        .labelsHidden()
                 }
             }
         }
