@@ -6,10 +6,10 @@ The **macTilt** 3D clamshell fold animation for MacBooks driven by the physical 
 
 Rather than rendering inside a separate window, **the entire macOS display follows the animation in 3D space as you close your MacBook lid**.
 
+## NOTE
+- **Opening MacBook**: it's not possible to do it on lock screen due to macOS restrictions (without disabling SIP, which i don’t recommend). Because in that case any malicious app would be able to draw a login flow on your lock screen and steal your passwords. But i have implemented the animation for opening when screen is unlocked
 - **Normal MacBook Use**: When you are actively using your MacBook (lid is open), the app does **nothing** (overlay is completely hidden, zero CPU/GPU overhead, full click-through).
 - **Closing MacBook**: As you tilt the screen closed, the display freezes the screen and seamlessly folds **from up to down** toward the bottom keyboard hinge into the dark void.
-- **Opening MacBook**: Left idle / untouched for now.
-
 ---
 
 ## Features
