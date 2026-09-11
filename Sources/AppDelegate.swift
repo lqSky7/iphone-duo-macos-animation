@@ -25,6 +25,14 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                 MenuBarController.shared.openControlPanel()
             }
         }
+        
+        // Setup updates and check in background
+        UpdateChecker.shared.requestNotificationPermission()
+        if AppSettings.shared.automaticallyCheckForUpdates {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                UpdateChecker.shared.checkForUpdates(userInitiated: false)
+            }
+        }
     }
     
     public func applicationWillTerminate(_ notification: Notification) {

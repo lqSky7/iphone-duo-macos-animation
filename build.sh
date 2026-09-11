@@ -59,7 +59,8 @@ swiftc -target arm64-apple-macos14.0 -O \
     -framework MetalKit \
     -framework ScreenCaptureKit \
     -framework IOKit \
-    -framework QuartzCore
+    -framework QuartzCore \
+    -framework UserNotifications
 
 swiftc -target x86_64-apple-macos14.0 -O \
     "$DIR"/Sources/*.swift \
@@ -70,7 +71,8 @@ swiftc -target x86_64-apple-macos14.0 -O \
     -framework MetalKit \
     -framework ScreenCaptureKit \
     -framework IOKit \
-    -framework QuartzCore
+    -framework QuartzCore \
+    -framework UserNotifications
 
 lipo -create "$BUILD_DIR/macTilt_arm64" "$BUILD_DIR/macTilt_x86_64" -output "$MACOS_DIR/macTilt"
 rm -f "$BUILD_DIR/macTilt_arm64" "$BUILD_DIR/macTilt_x86_64"

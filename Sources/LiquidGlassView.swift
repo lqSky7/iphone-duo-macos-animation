@@ -16,6 +16,7 @@ private let cardBorder = Color(nsColor: NSColor(name: nil, dynamicProvider: { ap
 
 public struct LiquidGlassControlPanel: View {
     @ObservedObject var settings: AppSettings = AppSettings.shared
+    @ObservedObject var updater: UpdateChecker = UpdateChecker.shared
     @State private var copiedResetCommand: Bool = false
     @State private var showingPermissionTroubleshooting: Bool = false
     private let resetCommand = "tccutil reset ScreenCapture com.lqsky7.mactilt"
@@ -55,6 +56,9 @@ public struct LiquidGlassControlPanel: View {
                     
                     // Interactive Test Slider Card
                     testPreviewCard
+                    
+                    // Software Updates & Release Card
+                    softwareUpdateCard
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 16)
@@ -517,6 +521,98 @@ public struct LiquidGlassControlPanel: View {
                     }
                     .transition(.opacity)
                 }
+            }
+        }
+    }
+    
+    // MARK: - Software Updates Card
+    private var softwareUpdateCard: some View {
+        HCISectionCard(title: "Software Updates", icon: "arrow.triangle.2.circlepath.circle") {
+            VStack(spacing: 12) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Current Version: v\(updater.currentVersion) (Build \(updater.currentBuild))")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                        
+                        if updater.isChecking {
+                            HStack(spacing: 6) {
+                                ProgressView()
+                                    .controlSize(.small)
+                                Text("Checking GitHub for updates...")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } else if updater.updateAvailable {
+                            Text("New version available: \(updater.latestVersion)")
+                                .font(.caption)
+                                .foregroundStyle(Color.green)
+                                .fontWeight(.semibold)
+                        } else if updater.hasChecked {
+                            Text(updater.statusMessage)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text("Check for newer releases published on GitHub.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        updater.checkForUpdates(userInitiated: true)
+                    }) {
+                        HStack(spacing: 4) {
+                            if updater.isChecking {
+                                ProgressView().controlSize(.small)
+                            } else {
+                                Image(systemName: "arrow.clockwise")
+                            }
+                            Text("Check for Updates")
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(updater.isChecking)
+                }
+                
+                if updater.updateAvailable {
+                    Divider()
+                    
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("🎉 \(updater.latestVersion) Ready to Install")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                            Text("Download the latest universal DMG installer directly from GitHub Releases.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        
+                        Spacer()
+                        
+                        Button("Download Update (.dmg)") {
+                            updater.openLatestRelease()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                    }
+                }
+                
+                Divider()
+                
+                Toggle(isOn: $settings.automaticallyCheckForUpdates) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Automatically Check for Updates")
+                            .font(.subheadline)
+                        Text("Silently checks GitHub releases in the background on startup.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .toggleStyle(.switch)
             }
         }
     }

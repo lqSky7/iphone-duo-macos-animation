@@ -9,6 +9,7 @@ public final class MenuBarController: NSObject, NSWindowDelegate {
     private var controlPanelWindow: NSWindow?
     private var onboardingWindow: NSWindow?
     private var angleMenuItem: NSMenuItem?
+    private var updateMenuItem: NSMenuItem?
     private var lastAngle: Double = 120.0
     private var lastIsConnected: Bool = false
     
@@ -30,6 +31,12 @@ public final class MenuBarController: NSObject, NSWindowDelegate {
         let header = NSMenuItem(title: "macTilt Clamshell Animation", action: nil, keyEquivalent: "")
         header.isEnabled = false
         menu.addItem(header)
+        
+        let updateItem = NSMenuItem(title: "✨ Update Available", action: #selector(openLatestRelease), keyEquivalent: "")
+        updateItem.target = self
+        updateItem.isHidden = true
+        self.updateMenuItem = updateItem
+        menu.addItem(updateItem)
         
         let angleItem = NSMenuItem(title: "Lid Sensor: Initializing...", action: nil, keyEquivalent: "")
         angleItem.isEnabled = false
@@ -57,6 +64,10 @@ public final class MenuBarController: NSObject, NSWindowDelegate {
         let captureItem = NSMenuItem(title: "Re-capture Screen Snapshot", action: #selector(recaptureScreen), keyEquivalent: "r")
         captureItem.target = self
         menu.addItem(captureItem)
+        
+        let checkUpdateItem = NSMenuItem(title: "Check for Updates...", action: #selector(checkForUpdates), keyEquivalent: "u")
+        checkUpdateItem.target = self
+        menu.addItem(checkUpdateItem)
         
         menu.addItem(NSMenuItem.separator())
         
@@ -194,6 +205,25 @@ public final class MenuBarController: NSObject, NSWindowDelegate {
     
     @objc private func recaptureScreen() {
         OverlayWindowController.shared.captureScreenAsync()
+    }
+    
+    public func refreshUpdateMenuState() {
+        DispatchQueue.main.async {
+            if UpdateChecker.shared.updateAvailable {
+                self.updateMenuItem?.title = "✨ Download \(UpdateChecker.shared.latestVersion) Update..."
+                self.updateMenuItem?.isHidden = false
+            } else {
+                self.updateMenuItem?.isHidden = true
+            }
+        }
+    }
+    
+    @objc private func checkForUpdates() {
+        UpdateChecker.shared.checkForUpdates(userInitiated: true)
+    }
+    
+    @objc private func openLatestRelease() {
+        UpdateChecker.shared.openLatestRelease()
     }
     
     @objc private func quitApp() {

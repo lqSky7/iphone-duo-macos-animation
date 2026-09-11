@@ -34,8 +34,13 @@ public final class AppSettings: ObservableObject {
     private let kShowAngleInMenuBar = "mactilt_showAngleInMenuBar"
     private let kEnableLockScreenPriority = "mactilt_enable_lock_screen_priority"
     private let kHasCompletedOnboarding = "mactilt_hasCompletedOnboarding"
+    private let kAutomaticallyCheckForUpdates = "mactilt_automaticallyCheckForUpdates"
     
     // MARK: - Customizable Animation Options
+    @Published public var automaticallyCheckForUpdates: Bool {
+        didSet { UserDefaults.standard.set(automaticallyCheckForUpdates, forKey: kAutomaticallyCheckForUpdates) }
+    }
+    
     @Published public var hasCompletedOnboarding: Bool {
         didSet { UserDefaults.standard.set(hasCompletedOnboarding, forKey: kHasCompletedOnboarding) }
     }
@@ -119,6 +124,7 @@ public final class AppSettings: ObservableObject {
         
         self.showAngleInMenuBar = defaults.object(forKey: kShowAngleInMenuBar) != nil ? defaults.bool(forKey: kShowAngleInMenuBar) : true
         self.enableLockScreenPriority = defaults.object(forKey: kEnableLockScreenPriority) != nil ? defaults.bool(forKey: kEnableLockScreenPriority) : true
+        self.automaticallyCheckForUpdates = defaults.object(forKey: kAutomaticallyCheckForUpdates) != nil ? defaults.bool(forKey: kAutomaticallyCheckForUpdates) : true
         
         // Listen for app becoming active to re-check permissions immediately
         NotificationCenter.default.addObserver(
