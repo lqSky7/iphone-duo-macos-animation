@@ -28,12 +28,24 @@ public final class OverlayWindowController: NSObject {
         ws.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [weak self] _ in
             self?.handleSleep()
         }
+        ws.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.handleWake()
+        }
+        ws.addObserver(forName: NSWorkspace.screensDidWakeNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.handleWake()
+        }
     }
     
     private func handleSleep() {
         metalView?.isPaused = true
         window?.alphaValue = 0.0
         AppSettings.shared.isScreenCaptureDormant = true
+    }
+    
+    private func handleWake() {
+        if AppSettings.shared.imageSourceMode == .liveCapture {
+            captureScreenAsync()
+        }
     }
     
     private func setupWindow() {

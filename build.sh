@@ -48,11 +48,11 @@ xcrun -sdk macosx metal -c "$DIR/Sources/FoldShaders.metal" -o "$BUILD_DIR/FoldS
 xcrun -sdk macosx metallib "$BUILD_DIR/FoldShaders.air" -o "$RESOURCES_DIR/default.metallib"
 cp "$DIR/Sources/FoldShaders.metal" "$RESOURCES_DIR/FoldShaders.metal"
 
-# 4. Compile Swift Sources
-echo "▶ Compiling Swift Application..."
-swiftc -O \
+# 4. Compile Swift Sources (Universal 2: arm64 + x86_64 targeting macOS 14.0+)
+echo "▶ Compiling Swift Application (Universal: arm64 + x86_64 for macOS 14.0+)..."
+swiftc -target arm64-apple-macos14.0 -O \
     "$DIR"/Sources/*.swift \
-    -o "$MACOS_DIR/macTilt" \
+    -o "$BUILD_DIR/macTilt_arm64" \
     -framework AppKit \
     -framework SwiftUI \
     -framework Metal \
@@ -60,6 +60,20 @@ swiftc -O \
     -framework ScreenCaptureKit \
     -framework IOKit \
     -framework QuartzCore
+
+swiftc -target x86_64-apple-macos14.0 -O \
+    "$DIR"/Sources/*.swift \
+    -o "$BUILD_DIR/macTilt_x86_64" \
+    -framework AppKit \
+    -framework SwiftUI \
+    -framework Metal \
+    -framework MetalKit \
+    -framework ScreenCaptureKit \
+    -framework IOKit \
+    -framework QuartzCore
+
+lipo -create "$BUILD_DIR/macTilt_arm64" "$BUILD_DIR/macTilt_x86_64" -output "$MACOS_DIR/macTilt"
+rm -f "$BUILD_DIR/macTilt_arm64" "$BUILD_DIR/macTilt_x86_64"
 
 # 5. Copy Resources & Plist
 cp "$INFO_PLIST" "$CONTENTS_DIR/Info.plist"

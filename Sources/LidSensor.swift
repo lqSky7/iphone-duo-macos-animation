@@ -150,24 +150,16 @@ public final class LidSensor {
                 }
                 
                 // Hardware Pre-Arming Capture Zone:
-                // Pre-arms during downward motion right around startTiltAngle
+                // Pre-arms right as lid enters folding range
                 let nowTime = CACurrentMediaTime()
                 let preArmThreshold = min(135.0, settings.startTiltAngle + 15.0)
-                if angle <= preArmThreshold && angle >= (settings.startTiltAngle - 5.0) {
-                    if isActivelyClosing && !hasPreArmedInThisMotion && (nowTime - lastPreArmTime > 2.0) {
+                if angle <= preArmThreshold && angle < settings.startTiltAngle {
+                    if !hasPreArmedInThisMotion && (nowTime - lastPreArmTime > 2.0) {
                         hasPreArmedInThisMotion = true
                         lastPreArmTime = nowTime
                         settings.isScreenCaptureDormant = false
                         onPreArmCapture?()
                     }
-                }
-                
-                // Safety fallback for fast slams or starting closure below startTiltAngle
-                if angle < settings.startTiltAngle && isActivelyClosing && !hasPreArmedInThisMotion && (nowTime - lastPreArmTime > 2.0) {
-                    hasPreArmedInThisMotion = true
-                    lastPreArmTime = nowTime
-                    settings.isScreenCaptureDormant = false
-                    onPreArmCapture?()
                 }
                 
                 previousRawAngle = angle
@@ -178,8 +170,8 @@ public final class LidSensor {
             }
         }
         
-        // Compute target turn: only when closing and below startTiltAngle
-        targetTurn = settings.normalizedTurn(for: currentRawAngle, isLidClosing: isActivelyClosing)
+        // Compute target turn: continuously mirrors physical angle across full range
+        targetTurn = settings.normalizedTurn(for: currentRawAngle)
         
         // Follow easing physics
         let now = CACurrentMediaTime()

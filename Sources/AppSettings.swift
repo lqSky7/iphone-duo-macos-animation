@@ -135,22 +135,18 @@ public final class AppSettings: ObservableObject {
         }
     }
     
-    /// Calculate normalized turn (0.0 to 1.0) across the entire closing motion
-    public func normalizedTurn(for angle: Double, isLidClosing: Bool) -> Double {
+    /// Calculate normalized turn (0.0 to 1.0) across the entire folding range (closing, opening, or stopped)
+    public func normalizedTurn(for angle: Double) -> Double {
         if isTestModeActive {
             return min(1.0, max(0.0, testTurnValue))
         }
         
-        // User is using MacBook normally: do nothing
+        // Lid is open at or beyond start tilt angle: flat / no fold
         if angle >= startTiltAngle {
             return 0.0
         }
         
-        // If opening or not closing: do nothing
-        if !isLidClosing {
-            return 0.0
-        }
-        
+        // Lid is fully closed at or below end tilt angle: full fold
         if angle <= endTiltAngle {
             return 1.0
         }

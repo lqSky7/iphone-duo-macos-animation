@@ -132,14 +132,12 @@ public struct LiquidGlassControlPanel: View {
     
     private var angleStatusText: String {
         if settings.currentLidAngle >= settings.startTiltAngle {
-            return "Using Mac (Idle)"
+            return "Using Mac (Open)"
         } else if settings.currentLidAngle <= settings.endTiltAngle {
             return "Lid Closed"
-        } else if settings.isClosing {
-            let pct = Int(settings.normalizedTurn(for: settings.currentLidAngle, isLidClosing: true) * 100)
-            return "Closing (\(pct)%)"
         } else {
-            return "Opening (Idle)"
+            let pct = Int(settings.normalizedTurn(for: settings.currentLidAngle) * 100)
+            return "Fold (\(pct)%)"
         }
     }
     
@@ -164,7 +162,7 @@ public struct LiquidGlassControlPanel: View {
                 } label: {
                     Image(systemName: "arrow.clockwise")
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.bordered)
                 .controlSize(.small)
                 .help("Re-check permission")
                 
@@ -177,7 +175,7 @@ public struct LiquidGlassControlPanel: View {
                             settings.refreshPermissions()
                         }
                     }
-                    .buttonStyle(.glassProminent)
+                    .buttonStyle(.borderedProminent)
                     .controlSize(.small)
                     
                     Button {
@@ -185,7 +183,7 @@ public struct LiquidGlassControlPanel: View {
                     } label: {
                         Image(systemName: "questionmark.circle")
                     }
-                    .buttonStyle(.glass)
+                    .buttonStyle(.bordered)
                     .controlSize(.small)
                     .help("Permission troubleshooting")
                     .popover(isPresented: $showingPermissionTroubleshooting, arrowEdge: .trailing) {
@@ -201,7 +199,7 @@ public struct LiquidGlassControlPanel: View {
                                 Button("Relaunch App") {
                                     ScreenCapture.shared.relaunchApp()
                                 }
-                                .buttonStyle(.glassProminent)
+                                .buttonStyle(.borderedProminent)
                                 .controlSize(.small)
                                 
                                 Button(copiedResetCommand ? "Copied!" : "Copy Reset Command") {
@@ -212,7 +210,7 @@ public struct LiquidGlassControlPanel: View {
                                         copiedResetCommand = false
                                     }
                                 }
-                                .buttonStyle(.glass)
+                                .buttonStyle(.bordered)
                                 .controlSize(.small)
                             }
                             
@@ -338,7 +336,7 @@ public struct LiquidGlassControlPanel: View {
                         Button("Choose Image...") {
                             selectCustomImage()
                         }
-                        .buttonStyle(.glass)
+                        .buttonStyle(.bordered)
                         .controlSize(.small)
                     }
                 }
@@ -490,13 +488,13 @@ public struct LiquidGlassControlPanel: View {
                 settings.isTestModeActive = false
                 settings.testTurnValue = 0.0
             }
-            .buttonStyle(.glass)
+            .buttonStyle(.bordered)
             .controlSize(.regular)
             
             Button("Welcome Guide") {
                 MenuBarController.shared.openOnboardingWindow()
             }
-            .buttonStyle(.glass)
+            .buttonStyle(.bordered)
             .controlSize(.regular)
             
             Spacer()
@@ -507,7 +505,7 @@ public struct LiquidGlassControlPanel: View {
                 OverlayWindowController.shared.stopOverlay()
                 NSApp.keyWindow?.orderOut(nil)
             }
-            .buttonStyle(.glassProminent)
+            .buttonStyle(.borderedProminent)
             .controlSize(.regular)
             .keyboardShortcut(.defaultAction)
         }
