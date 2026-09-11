@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import IOKit.hid
 import QuartzCore
 
@@ -30,10 +31,34 @@ public final class LidSensor {
     
     private init() {
         setupManager()
+        setupWakeObservers()
     }
     
     deinit {
         stop()
+    }
+    
+    private func setupWakeObservers() {
+        let ws = NSWorkspace.shared.notificationCenter
+        ws.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.handleWake()
+        }
+        ws.addObserver(forName: NSWorkspace.screensDidWakeNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.handleWake()
+        }
+    }
+    
+    public func handleWake() {
+        if isDeviceOpen, let device = hidDevice {
+            IOHIDDeviceClose(device, Self.noOptions)
+            isDeviceOpen = false
+        }
+        setupManager()
+        if let device = hidDevice {
+            if IOHIDDeviceOpen(device, Self.noOptions) == kIOReturnSuccess {
+                isDeviceOpen = true
+            }
+        }
     }
     
     private func setupManager() {
@@ -167,6 +192,12 @@ public final class LidSensor {
                 settings.currentLidAngle = angle
                 settings.isClosing = isActivelyClosing
                 settings.isSensorConnected = true
+            } else {
+                // Device connection may have dropped or suspended during deep sleep
+                isDeviceOpen = false
+                if IOHIDDeviceOpen(device, Self.noOptions) == kIOReturnSuccess {
+                    isDeviceOpen = true
+                }
             }
         }
         

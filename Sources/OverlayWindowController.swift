@@ -39,10 +39,12 @@ public final class OverlayWindowController: NSObject {
     private func handleSleep() {
         metalView?.isPaused = true
         window?.alphaValue = 0.0
+        wasZeroTurn = true
         AppSettings.shared.isScreenCaptureDormant = true
     }
     
     private func handleWake() {
+        wasZeroTurn = true
         if AppSettings.shared.imageSourceMode == .liveCapture {
             captureScreenAsync()
         }
