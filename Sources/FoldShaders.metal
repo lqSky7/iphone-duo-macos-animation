@@ -11,6 +11,8 @@ struct Uniforms {
     float turn;
     float blurStrength;
     float reflectionIntensity;
+    float sampleCount;   // adaptive quality: 12 / 20 / 32 (float for Swift layout parity)
+    float motionBoost;   // velocity-aware extra blur radius (0 = still, larger = fast close)
 };
 
 struct VertexOut {
@@ -42,7 +44,8 @@ inline float3 sampleSmoothMatteBlur(texture2d<float> tex,
                                     float radius,
                                     float2 cover,
                                     float2 uiPixel,
-                                    float2 screenCoord) {
+                                    float2 screenCoord,
+                                    int maxSamples) {
     float2 tuv = (uv - 0.5) * cover + 0.5;
     
     // When radius is near zero, return razor-sharp native Retina sample at level 0
@@ -69,15 +72,18 @@ inline float3 sampleSmoothMatteBlur(texture2d<float> tex,
     float3 accum = float3(0.0);
     float totalWeight = 0.0;
     
-    // 32-sample Vogel Disc (Golden Angle Fermat Spiral)
+    // 32-sample Vogel Disc (Golden Angle Fermat Spiral), adaptive early-out.
+    // Close path only: still lid = 12 taps, mid-fold = 20, fast close = 32.
     constexpr int NUM_SAMPLES = 32;
     constexpr float GOLDEN_ANGLE = 2.39996323; // pi * (3.0 - sqrt(5.0))
-    
+    int activeSamples = clamp(maxSamples, 4, NUM_SAMPLES);
+
     for (int i = 0; i < NUM_SAMPLES; i++) {
+        if (i >= activeSamples) { break; }
         float fi = float(i);
         float theta = fi * GOLDEN_ANGLE;
         // Square root progression provides uniform area density across the disc
-        float r = sqrt((fi + 0.5) / float(NUM_SAMPLES));
+        float r = sqrt((fi + 0.5) / float(activeSamples));
         
         // Direction rotated by micro-jitter
         float uX = cos(theta);
@@ -115,9 +121,10 @@ fragment float4 foldFragment(VertexOut in [[stage_in]],
                              constant Uniforms &u [[buffer(0)]]) {
     float turn = clamp(u.turn, 0.0, 1.0);
     float2 uiPixel = 2.0 / max(float2(1.0), u.imageSize);
+    int quality = int(clamp(u.sampleCount, 4.0, 32.0));
     
     if (turn <= 0.00001) {
-        return float4(sampleSmoothMatteBlur(tex, s, in.uv, 0.0, u.cover, uiPixel, in.position.xy), 1.0);
+        return float4(sampleSmoothMatteBlur(tex, s, in.uv, 0.0, u.cover, uiPixel, in.position.xy, quality), 1.0);
     }
     
     // Up-to-Down Clamshell Fold: Hinge is at the bottom edge (in.uv.y = 1.0)
@@ -138,23 +145,31 @@ fragment float4 foldFragment(VertexOut in [[stage_in]],
     plane.y = 1.0 - fromHinge * cosine * perspective;
     plane.x = 0.5 + (in.uv.x - 0.5) * perspective;
     
-    // Defocus blur: smooth progression that remains continuous and silky
+    // Defocus blur: smooth progression that remains continuous and silky.
+    // Depth-weighted (hinge stays sharper, outer edge falls off) + velocity-aware:
+    // fast lid motion adds directional-feel blur via motionBoost, decaying as lid stops.
     float blurSpread = pow(smoothstep(0.0, 0.85, fromHinge), 1.2);
     float motion = smoothstep(0.0, 1.0, turn) * mix(0.20, 1.0, blurSpread);
-    float radius = 56.0 * motion * max(0.05, u.blurStrength);
+    float velocityTerm = clamp(u.motionBoost, 0.0, 24.0) * blurSpread;
+    float radius = 56.0 * motion * max(0.05, u.blurStrength) + velocityTerm;
     
     // Side margins softness
     float softness = fwidth(in.uv.x) + radius * 0.002;
     float mask = 1.0 - smoothstep(0.5 - softness, 0.5 + softness, abs(plane.x - 0.5));
     
-    // Sample texture using 32-sample Vogel disc continuous matte blur
-    float3 color = sampleSmoothMatteBlur(tex, s, plane, radius, u.cover, uiPixel, in.position.xy);
+    // Sample texture using adaptive Vogel disc continuous matte blur
+    float3 color = sampleSmoothMatteBlur(tex, s, plane, radius, u.cover, uiPixel, in.position.xy, quality);
     
     // Glass refraction & reflection
     float glass = sine * pow(fromHinge, 1.5);
     color *= 1.0 - 0.20 * glass;
     float reflection = exp(-pow((fromHinge - 0.65) / 0.35, 2.0)) * sine;
     color += float3(0.82, 0.85, 0.86) * reflection * (0.025 * u.reflectionIntensity);
+
+    // Subtle hinge highlight: narrow specular line near the hinge that grows
+    // with bend angle. Sells the physical hinge without faking a crease.
+    float hingeLine = exp(-pow(fromHinge / 0.06, 2.0)) * sine;
+    color += float3(0.90, 0.93, 0.95) * hingeLine * 0.035;
     
     // Smooth void fade: gradual falloff that only fully darkens at the very end
     float fadeDistance = clamp((fromHinge - 0.20) / 0.80, 0.0, 1.0);
