@@ -46,6 +46,10 @@ public final class MenuBarController: NSObject, NSWindowDelegate {
         welcomeItem.target = self
         menu.addItem(welcomeItem)
         
+        let previewItem = NSMenuItem(title: "Trigger Fold Animation Preview", action: #selector(triggerFoldPreview), keyEquivalent: "p")
+        previewItem.target = self
+        menu.addItem(previewItem)
+        
         let testToggle = NSMenuItem(title: "Toggle Test Preview Slider", action: #selector(toggleTestMode), keyEquivalent: "t")
         testToggle.target = self
         menu.addItem(testToggle)
@@ -72,7 +76,11 @@ public final class MenuBarController: NSObject, NSWindowDelegate {
         
         if let button = statusItem?.button {
             if AppSettings.shared.showAngleInMenuBar {
-                button.title = " \(Int(angle))°"
+                if AppSettings.shared.isHardwareSensor {
+                    button.title = " \(Int(angle))°"
+                } else {
+                    button.title = ""
+                }
             } else {
                 button.title = ""
             }
@@ -80,8 +88,12 @@ public final class MenuBarController: NSObject, NSWindowDelegate {
         
         if let angleItem = self.angleMenuItem {
             if isConnected {
-                let status = AppSettings.shared.isClosing ? "Closing (\(Int(angle))°)" : "Idle (\(Int(angle))°)"
-                angleItem.title = "Lid: \(status)"
+                if AppSettings.shared.isHardwareSensor {
+                    let status = AppSettings.shared.isClosing ? "Closing (\(Int(angle))°)" : "Open (\(Int(angle))°)"
+                    angleItem.title = "Sensor: \(status)"
+                } else {
+                    angleItem.title = "Mode: Clamshell Auto-Animation"
+                }
             } else {
                 angleItem.title = "Lid Sensor: Disconnected"
             }
@@ -164,6 +176,10 @@ public final class MenuBarController: NSObject, NSWindowDelegate {
             AppSettings.shared.isTestModeActive = false
             AppSettings.shared.testTurnValue = 0.0
         }
+    }
+    
+    @objc private func triggerFoldPreview() {
+        LidSensor.shared.triggerPreviewAnimation()
     }
     
     @objc private func toggleTestMode() {

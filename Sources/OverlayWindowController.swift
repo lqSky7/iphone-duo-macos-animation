@@ -45,6 +45,9 @@ public final class OverlayWindowController: NSObject {
     
     private func handleWake() {
         wasZeroTurn = true
+        if let win = self.window, AppSettings.shared.enableLockScreenPriority {
+            SkyLightOperator.shared.delegateWindow(win)
+        }
         if AppSettings.shared.imageSourceMode == .liveCapture {
             captureScreenAsync()
         }
@@ -62,14 +65,19 @@ public final class OverlayWindowController: NSObject {
         win.isOpaque = false
         win.backgroundColor = .clear
         win.hasShadow = false
+        win.canBecomeVisibleWithoutLogin = true
         if AppSettings.shared.enableLockScreenPriority {
-            win.level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()) + 1)
+            win.level = .init(rawValue: Int(Int32.max - 2))
         } else {
             win.level = .screenSaver
         }
         win.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         win.ignoresMouseEvents = true
         win.alphaValue = 0.0
+        
+        if AppSettings.shared.enableLockScreenPriority {
+            SkyLightOperator.shared.delegateWindow(win)
+        }
         
         let mtkView = MetalFoldView(frame: win.contentView?.bounds ?? screen.frame)
         mtkView.autoresizingMask = [.width, .height]
@@ -84,7 +92,6 @@ public final class OverlayWindowController: NSObject {
             if let img = await ScreenCapture.shared.fetchImage() {
                 await MainActor.run {
                     self.metalView?.updateImage(img)
-                    SharedStateManager.shared.saveScreenCache(img)
                     AppSettings.shared.lastCaptureDate = Date()
                     AppSettings.shared.isScreenCaptureDormant = true
                 }
@@ -103,19 +110,23 @@ public final class OverlayWindowController: NSObject {
         if turn > 0.0001 {
             if wasZeroTurn {
                 wasZeroTurn = false
-                // If pre-arm hasn't finished or was skipped, trigger emergency snapshot
+                win.alphaValue = 1.0
+                win.orderFrontRegardless()
+                if AppSettings.shared.enableLockScreenPriority {
+                    SkyLightOperator.shared.delegateWindow(win)
+                }
+                // If pre-arm hasn't finished or was skipped, trigger snapshot if not already active
                 if AppSettings.shared.imageSourceMode == .liveCapture {
                     captureScreenAsync()
                 }
             }
-            
             mv.isPaused = false
-            win.alphaValue = 1.0
-            win.orderFrontRegardless()
         } else {
-            wasZeroTurn = true
-            win.alphaValue = 0.0
-            mv.isPaused = true
+            if !wasZeroTurn {
+                wasZeroTurn = true
+                win.alphaValue = 0.0
+                mv.isPaused = true
+            }
         }
     }
     
@@ -129,7 +140,7 @@ public final class OverlayWindowController: NSObject {
     public func updateWindowLevel() {
         guard let win = self.window else { return }
         if AppSettings.shared.enableLockScreenPriority {
-            win.level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()) + 1)
+            SkyLightOperator.shared.delegateWindow(win)
         } else {
             win.level = .screenSaver
         }
@@ -144,7 +155,6 @@ public final class OverlayWindowController: NSObject {
             if let image = await ScreenCapture.shared.fetchImage() {
                 await MainActor.run {
                     self.metalView?.updateImage(image)
-                    SharedStateManager.shared.saveScreenCache(image)
                     self.isCapturing = false
                     AppSettings.shared.lastCaptureDate = Date()
                     AppSettings.shared.isScreenCaptureDormant = true

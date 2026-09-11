@@ -63,6 +63,7 @@ public final class MetalFoldView: MTKView, MTKViewDelegate {
         self.clearColor = MTLClearColor(red: 0.003, green: 0.004, blue: 0.005, alpha: 1.0)
         self.framebufferOnly = false
         self.enableSetNeedsDisplay = false
+        self.preferredFramesPerSecond = 120
         self.isPaused = false
         
         // Sampler

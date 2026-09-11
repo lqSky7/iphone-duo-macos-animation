@@ -93,6 +93,8 @@ public final class AppSettings: ObservableObject {
     @Published public var testTurnValue: Double = 0.0
     @Published public var currentLidAngle: Double = 120.0
     @Published public var isSensorConnected: Bool = false
+    @Published public var isHardwareSensor: Bool = false
+    @Published public var isClamshellMode: Bool = false
     @Published public var isClosing: Bool = false
     @Published public var sensorStatusMessage: String = "Initializing sensor..."
     @Published public var hasScreenRecordingPermission: Bool = false

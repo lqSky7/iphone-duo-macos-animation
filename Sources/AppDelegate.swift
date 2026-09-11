@@ -14,7 +14,6 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         sensor.onTurnUpdate = { turn, angle in
             OverlayWindowController.shared.update(turn: turn, angle: angle)
             MenuBarController.shared.updateAngleDisplay(angle: angle, isConnected: AppSettings.shared.isSensorConnected)
-            SharedStateManager.shared.broadcast(angle: angle, turn: turn)
         }
         sensor.start()
         
