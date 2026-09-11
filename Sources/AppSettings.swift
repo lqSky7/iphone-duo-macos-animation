@@ -117,7 +117,9 @@ public final class AppSettings: ObservableObject {
         self.reflectionIntensity = defaults.object(forKey: kReflectionIntensity) != nil ? defaults.double(forKey: kReflectionIntensity) : 0.0
         
         self.showAngleInMenuBar = defaults.object(forKey: kShowAngleInMenuBar) != nil ? defaults.bool(forKey: kShowAngleInMenuBar) : true
-        self.enableLockScreenPriority = defaults.object(forKey: kEnableLockScreenPriority) != nil ? defaults.bool(forKey: kEnableLockScreenPriority) : true
+        // The lock-screen space needs SIP off; the saved choice comes back once it is.
+        self.enableLockScreenPriority = !LockScreenSpace.isSIPEnabled
+            && (defaults.object(forKey: kEnableLockScreenPriority) != nil ? defaults.bool(forKey: kEnableLockScreenPriority) : true)
         
         // Listen for app becoming active to re-check permissions immediately
         NotificationCenter.default.addObserver(

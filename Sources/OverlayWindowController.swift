@@ -244,7 +244,11 @@ public final class OverlayWindowController: NSObject {
         guard let win = self.window else { return }
         win.canBecomeVisibleWithoutLogin = AppSettings.shared.enableLockScreenPriority
         let ready = LockScreenSpace.shared.configure(win, enabled: AppSettings.shared.enableLockScreenPriority)
-        AppSettings.shared.lockScreenStatus = ready ? "已配置锁屏接口（待实际开盖验证）" : "锁屏显示接口不可用"
+        if LockScreenSpace.isSIPEnabled {
+            AppSettings.shared.lockScreenStatus = "需要先关闭系统完整性保护（SIP）"
+        } else {
+            AppSettings.shared.lockScreenStatus = ready ? "已配置锁屏接口（待实际开盖验证）" : "锁屏显示接口不可用"
+        }
         if AppSettings.shared.enableLockScreenPriority {
             win.level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()) + 1)
         } else {

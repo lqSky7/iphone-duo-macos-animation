@@ -442,6 +442,7 @@ public struct LiquidGlassControlPanel: View {
                     
                     Toggle("", isOn: $settings.enableLockScreenPriority)
                         .labelsHidden()
+                        .disabled(LockScreenSpace.isSIPEnabled)
                 }
                 
                 Divider()

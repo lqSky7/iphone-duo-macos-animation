@@ -11,6 +11,17 @@ final class LockScreenSpace {
     private typealias Show = @convention(c) (Int32, CFArray) -> Int32
     private typealias Add = @convention(c) (Int32, Int32, CFArray, Int32) -> Int32
     private typealias CopySpaces = @convention(c) (Int32, Int32, CFArray) -> Unmanaged<CFArray>?
+    private typealias ActiveConfig = @convention(c) (UnsafeMutablePointer<UInt32>) -> Int32
+
+    /// True unless System Integrity Protection has been relaxed. The lock-screen space
+    /// needs SIP off; if the state can't be read, treat SIP as on.
+    static let isSIPEnabled: Bool = {
+        guard let handle = dlopen(nil, RTLD_NOW),
+              let symbol = dlsym(handle, "csr_get_active_config") else { return true }
+        var config: UInt32 = 0
+        return unsafeBitCast(symbol, to: ActiveConfig.self)(&config) != 0 || config == 0
+    }()
+
     private var copySpaces: CopySpaces?
     private var connection: Int32 = 0
     private var space: Int32 = 0
