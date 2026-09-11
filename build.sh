@@ -119,22 +119,60 @@ if [ -f "$DIR/Resources/AppIcon.svg" ]; then
     cp "$DIR/Resources/AppIcon.svg" "$RESOURCES_DIR/AppIcon.svg"
 fi
 
-# 6. Codesign App Bundle
-echo "▶ Codesigning Application Bundle..."
+# 6. Compile Companion Screen Saver (macTilt.saver - Universal: arm64 + x86_64 for macOS 14.0+)
+SAVER_BUNDLE="$BUILD_DIR/macTilt.saver"
+echo "▶ Compiling Companion Screen Saver ($SAVER_BUNDLE)..."
+rm -rf "$SAVER_BUNDLE"
+mkdir -p "$SAVER_BUNDLE/Contents/MacOS" "$SAVER_BUNDLE/Contents/Resources"
+cp "$DIR/Resources/ScreenSaver-Info.plist" "$SAVER_BUNDLE/Contents/Info.plist"
+
+swiftc -target arm64-apple-macos14.0 -O -emit-library \
+    "$DIR/Sources/ScreenSaver/MacTiltScreenSaverView.swift" \
+    "$DIR/Sources/MetalFoldView.swift" \
+    "$DIR/Sources/SharedStateManager.swift" \
+    -framework ScreenSaver -framework AppKit -framework Metal -framework MetalKit -framework QuartzCore \
+    -o "$BUILD_DIR/macTiltSaver_arm64"
+
+swiftc -target x86_64-apple-macos14.0 -O -emit-library \
+    "$DIR/Sources/ScreenSaver/MacTiltScreenSaverView.swift" \
+    "$DIR/Sources/MetalFoldView.swift" \
+    "$DIR/Sources/SharedStateManager.swift" \
+    -framework ScreenSaver -framework AppKit -framework Metal -framework MetalKit -framework QuartzCore \
+    -o "$BUILD_DIR/macTiltSaver_x86_64"
+
+lipo -create "$BUILD_DIR/macTiltSaver_arm64" "$BUILD_DIR/macTiltSaver_x86_64" -output "$SAVER_BUNDLE/Contents/MacOS/macTiltSaver"
+rm -f "$BUILD_DIR/macTiltSaver_arm64" "$BUILD_DIR/macTiltSaver_x86_64"
+
+cp "$RESOURCES_DIR/default.metallib" "$SAVER_BUNDLE/Contents/Resources/default.metallib"
+cp "$DIR/Sources/FoldShaders.metal" "$SAVER_BUNDLE/Contents/Resources/"
+if [ -f "$DIR/Resources/default.png" ]; then
+    cp "$DIR/Resources/default.png" "$SAVER_BUNDLE/Contents/Resources/"
+fi
+
+# 7. Codesign App Bundle and Screen Saver
+echo "▶ Codesigning Application Bundle & Screen Saver..."
 SIGNING_IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null | grep "Apple Development" | head -n 1 | awk -F '"' '{print $2}')
 if [ -z "$SIGNING_IDENTITY" ]; then
     SIGNING_IDENTITY="-"
 fi
 echo "▶ Using Signing Identity: $SIGNING_IDENTITY"
+if [ "$SIGNING_IDENTITY" != "-" ]; then
+    codesign --force --deep --sign "$SIGNING_IDENTITY" "$SAVER_BUNDLE"
+fi
+
+# Copy signed Screen Saver into app resources
+cp -R "$SAVER_BUNDLE" "$RESOURCES_DIR/macTilt.saver"
+
 codesign --force --deep --sign "$SIGNING_IDENTITY" "$APP_BUNDLE"
 
-# 7. Create Disk Image (DMG) Installer
+# 8. Create Disk Image (DMG) Installer
 DMG_OUTPUT="$BUILD_DIR/macTilt.dmg"
 echo "▶ Creating Disk Image ($DMG_OUTPUT)..."
 DMG_STAGING="/tmp/mactilt_dmg_staging"
 rm -rf "$DMG_STAGING" "$DMG_OUTPUT"
 mkdir -p "$DMG_STAGING"
 cp -R "$APP_BUNDLE" "$DMG_STAGING/macTilt.app"
+cp -R "$SAVER_BUNDLE" "$DMG_STAGING/macTilt.saver"
 ln -s /Applications "$DMG_STAGING/Applications"
 hdiutil create -volname "macTilt" -srcfolder "$DMG_STAGING" -ov -format UDZO "$DMG_OUTPUT" >/dev/null 2>&1
 rm -rf "$DMG_STAGING"

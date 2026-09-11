@@ -18,6 +18,7 @@ public struct LiquidGlassControlPanel: View {
     @ObservedObject var settings: AppSettings = AppSettings.shared
     @State private var copiedResetCommand: Bool = false
     @State private var showingPermissionTroubleshooting: Bool = false
+    @State private var isScreenSaverInstalled: Bool = false
     private let resetCommand = "tccutil reset ScreenCapture com.lqsky7.mactilt"
     
     public init() {}
@@ -71,6 +72,7 @@ public struct LiquidGlassControlPanel: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {
             settings.refreshPermissions()
+            checkSaverInstalled()
         }
         .onDisappear {
             settings.isTestModeActive = false
@@ -421,7 +423,7 @@ public struct LiquidGlassControlPanel: View {
     // MARK: - Lock Screen & Sleep Wake Card (Optional)
     private var lockScreenCard: some View {
         HCISectionCard(title: "Lock Screen & Sleep Wake", icon: "lock.shield") {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("High Priority Display Level")
@@ -437,6 +439,46 @@ public struct LiquidGlassControlPanel: View {
                     
                     Toggle("", isOn: $settings.enableLockScreenPriority)
                         .labelsHidden()
+                }
+                
+                Divider()
+                
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Companion Screen Saver (.saver)")
+                                .font(.subheadline)
+                            Text(isScreenSaverInstalled ? "Installed in ~/Library/Screen Savers/macTilt.saver" : "Renders clamshell fold directly on macOS password lock screen.")
+                                .font(.caption)
+                                .foregroundStyle(isScreenSaverInstalled ? Color.green : Color.secondary)
+                        }
+                        
+                        InfoButton("Lock Screen Companion", content: "Apple allows Screen Savers to render directly on the password Lock Screen. Installing this companion lets macTilt broadcast real-time lid angles to the lock screen with 0% idle battery burn.")
+                        
+                        Spacer()
+                    }
+                    
+                    HStack(spacing: 8) {
+                        Button(isScreenSaverInstalled ? "Reinstall Companion" : "Install Companion (.saver)") {
+                            installScreenSaver()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                        
+                        if isScreenSaverInstalled {
+                            Button("Test Screen Saver") {
+                                testScreenSaver()
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            
+                            Button("Open Settings") {
+                                openScreenSaverSettings()
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                        }
+                    }
                 }
             }
         }
@@ -545,6 +587,46 @@ public struct LiquidGlassControlPanel: View {
         panel.canChooseDirectories = false
         if panel.runModal() == .OK, let url = panel.url {
             settings.customImagePath = url.path
+        }
+    }
+    
+    private func checkSaverInstalled() {
+        let dest = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Screen Savers/macTilt.saver")
+        isScreenSaverInstalled = FileManager.default.fileExists(atPath: dest.path)
+    }
+    
+    private func installScreenSaver() {
+        let destDir = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Screen Savers")
+        try? FileManager.default.createDirectory(at: destDir, withIntermediateDirectories: true)
+        let dest = destDir.appendingPathComponent("macTilt.saver")
+        
+        let srcUrl = Bundle.main.url(forResource: "macTilt", withExtension: "saver")
+            ?? URL(fileURLWithPath: "/Users/ca5/Desktop/iphone-duo-macos-animation/build/macTilt.saver")
+        
+        if FileManager.default.fileExists(atPath: srcUrl.path) {
+            try? FileManager.default.removeItem(at: dest)
+            do {
+                try FileManager.default.copyItem(at: srcUrl, to: dest)
+                checkSaverInstalled()
+                openScreenSaverSettings()
+            } catch {
+                print("[macTilt] Error installing screen saver: \(error)")
+            }
+        }
+    }
+    
+    private func testScreenSaver() {
+        let task = Process()
+        task.launchPath = "/usr/bin/open"
+        task.arguments = ["-a", "/System/Library/CoreServices/ScreenSaverEngine.app"]
+        try? task.run()
+    }
+    
+    private func openScreenSaverSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.desktopscreeneffect?ScreenSaver") {
+            NSWorkspace.shared.open(url)
         }
     }
 }

@@ -35,6 +35,8 @@ public final class MetalFoldView: MTKView, MTKViewDelegate {
     private var imageSize: SIMD2<Float> = .init(1920, 1080)
     
     public var currentTurn: Float = 0.0
+    public var blurStrength: Float = 0.5
+    public var reflectionIntensity: Float = 0.0
     
     public init(frame: CGRect) {
         guard let device = MTLCreateSystemDefaultDevice() else {
@@ -80,8 +82,9 @@ public final class MetalFoldView: MTKView, MTKViewDelegate {
         
         var library: MTLLibrary?
         
-        // Try to load compiled metallib first
-        if let libUrl = Bundle.main.url(forResource: "default", withExtension: "metallib") {
+        // Try to load compiled metallib first (check bundle for current class, then main)
+        let bundle = Bundle(for: Self.self)
+        if let libUrl = bundle.url(forResource: "default", withExtension: "metallib") ?? Bundle.main.url(forResource: "default", withExtension: "metallib") {
             library = try? dev.makeLibrary(URL: libUrl)
         }
         
@@ -192,7 +195,6 @@ public final class MetalFoldView: MTKView, MTKViewDelegate {
             return
         }
         
-        let settings = AppSettings.shared
         let viewSize = view.drawableSize
         let aspect = Float(viewSize.width / max(1.0, viewSize.height))
         let imgAspect = imageSize.x / max(1.0, imageSize.y)
@@ -207,8 +209,8 @@ public final class MetalFoldView: MTKView, MTKViewDelegate {
             cover: cover,
             aspect: aspect,
             turn: currentTurn,
-            blurStrength: Float(settings.blurStrength),
-            reflectionIntensity: Float(settings.reflectionIntensity)
+            blurStrength: blurStrength,
+            reflectionIntensity: reflectionIntensity
         )
         
         encoder.setRenderPipelineState(pipeline)

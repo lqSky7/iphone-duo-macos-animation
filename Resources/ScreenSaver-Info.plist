@@ -7,28 +7,22 @@
 	<key>CFBundleDisplayName</key>
 	<string>macTilt</string>
 	<key>CFBundleExecutable</key>
-	<string>macTilt</string>
-	<key>CFBundleIconFile</key>
-	<string>AppIcon</string>
+	<string>macTiltSaver</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.lqsky7.mactilt</string>
+	<string>com.lqsky7.mactilt.saver</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>macTilt</string>
 	<key>CFBundlePackageType</key>
-	<string>APPL</string>
+	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.24</string>
+	<string>1.0.0</string>
 	<key>CFBundleVersion</key>
-	<string>25</string>
+	<string>1</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
-	<key>LSUIElement</key>
-	<true/>
-	<key>NSHighResolutionCapable</key>
-	<true/>
-	<key>NSSupportsAutomaticGraphicsSwitching</key>
-	<true/>
+	<key>NSPrincipalClass</key>
+	<string>MacTiltScreenSaverView</string>
 </dict>
 </plist>

@@ -82,6 +82,7 @@ public final class OverlayWindowController: NSObject {
             if let img = await ScreenCapture.shared.fetchImage() {
                 await MainActor.run {
                     self.metalView?.updateImage(img)
+                    SharedStateManager.shared.saveScreenCache(img)
                     AppSettings.shared.lastCaptureDate = Date()
                     AppSettings.shared.isScreenCaptureDormant = true
                 }
@@ -93,6 +94,8 @@ public final class OverlayWindowController: NSObject {
         guard let win = self.window, let mv = self.metalView else { return }
         
         mv.currentTurn = Float(turn)
+        mv.blurStrength = Float(AppSettings.shared.blurStrength)
+        mv.reflectionIntensity = Float(AppSettings.shared.reflectionIntensity)
         
         // Only trigger when closing and turn > 0
         if turn > 0.0001 {
@@ -139,6 +142,7 @@ public final class OverlayWindowController: NSObject {
             if let image = await ScreenCapture.shared.fetchImage() {
                 await MainActor.run {
                     self.metalView?.updateImage(image)
+                    SharedStateManager.shared.saveScreenCache(image)
                     self.isCapturing = false
                     AppSettings.shared.lastCaptureDate = Date()
                     AppSettings.shared.isScreenCaptureDormant = true
