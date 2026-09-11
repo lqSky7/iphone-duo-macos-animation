@@ -69,7 +69,7 @@ public final class LidSensor {
     private func setupManager() {
         let manager = IOHIDManagerCreate(kCFAllocatorDefault, Self.noOptions)
         guard IOHIDManagerOpen(manager, Self.noOptions) == kIOReturnSuccess else {
-            AppSettings.shared.sensorStatusMessage = "无法初始化 IOHIDManager。"
+            AppSettings.shared.sensorStatus = .managerUnavailable
             AppSettings.shared.isSensorConnected = false
             return
         }
@@ -86,7 +86,7 @@ public final class LidSensor {
         if let devices = IOHIDManagerCopyDevices(manager) as? Set<IOHIDDevice>, let device = devices.first {
             self.hidDevice = device
             AppSettings.shared.isSensorConnected = true
-            AppSettings.shared.sensorStatusMessage = "屏幕开合角度传感器已连接。"
+            AppSettings.shared.sensorStatus = .connected
         } else {
             // Fallback: search across all 0x8104 devices for page 32 usage 138
             let fallbackMatching: [String: Any] = [
@@ -101,7 +101,7 @@ public final class LidSensor {
                     if page == 32 && usage == 138 {
                         self.hidDevice = dev
                         AppSettings.shared.isSensorConnected = true
-                        AppSettings.shared.sensorStatusMessage = "屏幕开合角度传感器已连接。"
+                        AppSettings.shared.sensorStatus = .connected
                         break
                     }
                 }
@@ -110,7 +110,7 @@ public final class LidSensor {
         
         if self.hidDevice == nil {
             AppSettings.shared.isSensorConnected = false
-            AppSettings.shared.sensorStatusMessage = "未在此 Mac 上检测到屏幕开合角度传感器。"
+            AppSettings.shared.sensorStatus = .notFound
         }
     }
     

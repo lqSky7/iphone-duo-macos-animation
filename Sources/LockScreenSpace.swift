@@ -36,7 +36,7 @@ final class LockScreenSpace {
               let l = dlsym(handle, "SLSSpaceSetAbsoluteLevel"),
               let v = dlsym(handle, "SLSShowSpaces"),
               let a = dlsym(handle, "SLSSpaceAddWindowsAndRemoveFromSpaces") else {
-            NSLog("[macTilt] 锁屏显示接口不可用")
+            NSLog("[macTilt] Lock screen display interface unavailable")
             return
         }
         connection = unsafeBitCast(c, to: Connection.self)()
@@ -60,7 +60,7 @@ final class LockScreenSpace {
         // rather than interpreting an undefined return register as CGError.
         let spaces = copySpaces?(connection, 7, [window.windowNumber] as CFArray)?.takeRetainedValue() as? [NSNumber] ?? []
         let success = spaces.contains { $0.int32Value == space }
-        NSLog("[macTilt] 锁屏显示空间：%@，目标 %d，窗口 %d，实际 %@", success ? "已验证归属" : "归属查询未确认", space, Int32(window.windowNumber), String(describing: spaces))
+        NSLog("[macTilt] Lock screen space: %@, target %d, window %d, actual %@", success ? "membership verified" : "membership unconfirmed", space, Int32(window.windowNumber), String(describing: spaces))
         return levelResult == 0
     }
 }

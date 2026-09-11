@@ -12,10 +12,57 @@ public enum ImageSourceMode: Int, CaseIterable, Identifiable {
     
     public var title: String {
         switch self {
-        case .liveCapture: return "实时屏幕捕获"
-        case .desktopWallpaper: return "桌面壁纸"
-        case .bundledArtwork: return "内置图片"
-        case .customImage: return "自定义图片"
+        case .liveCapture: return tr("实时屏幕捕获", "Live Screen Capture")
+        case .desktopWallpaper: return tr("桌面壁纸", "Desktop Wallpaper")
+        case .bundledArtwork: return tr("内置图片", "Bundled Artwork")
+        case .customImage: return tr("自定义图片", "Custom Image")
+        }
+    }
+}
+
+public enum AppLanguage: String, CaseIterable, Identifiable {
+    case system
+    case chinese = "zh-Hans"
+    case english = "en"
+
+    public var id: String { rawValue }
+
+    public var title: String {
+        switch self {
+        case .system: return tr("跟随系统", "System")
+        case .chinese: return "中文"
+        case .english: return "English"
+        }
+    }
+}
+
+/// Returns the Simplified Chinese or English copy for the current interface language.
+public func tr(_ chinese: String, _ english: String) -> String {
+    AppSettings.shared.usesChinese ? chinese : english
+}
+
+public enum LockScreenStatus {
+    case initializing, needsSIPDisabled, configured, unavailable
+
+    public var text: String {
+        switch self {
+        case .initializing: return tr("正在初始化锁屏显示接口…", "Setting up the lock screen display…")
+        case .needsSIPDisabled: return tr("需要先关闭系统完整性保护（SIP）", "Requires System Integrity Protection (SIP) to be disabled")
+        case .configured: return tr("已配置锁屏接口（待实际开盖验证）", "Lock screen display configured (confirm by opening the lid)")
+        case .unavailable: return tr("锁屏显示接口不可用", "Lock screen display unavailable")
+        }
+    }
+}
+
+public enum SensorStatus {
+    case initializing, managerUnavailable, connected, notFound
+
+    public var text: String {
+        switch self {
+        case .initializing: return tr("正在初始化传感器…", "Initializing sensor…")
+        case .managerUnavailable: return tr("无法初始化 IOHIDManager。", "Could not initialize IOHIDManager.")
+        case .connected: return tr("屏幕开合角度传感器已连接。", "Lid angle sensor connected.")
+        case .notFound: return tr("未在此 Mac 上检测到屏幕开合角度传感器。", "No lid angle sensor found on this Mac.")
         }
     }
 }
@@ -34,6 +81,7 @@ public final class AppSettings: ObservableObject {
     private let kShowAngleInMenuBar = "mactilt_showAngleInMenuBar"
     private let kEnableLockScreenPriority = "mactilt_enable_lock_screen_priority"
     private let kHasCompletedOnboarding = "mactilt_hasCompletedOnboarding"
+    private let kLanguage = "mactilt_language"
     
     // MARK: - Customizable Animation Options
     @Published public var hasCompletedOnboarding: Bool {
@@ -81,9 +129,25 @@ public final class AppSettings: ObservableObject {
             OverlayWindowController.shared.updateWindowLevel()
         }
     }
+
+    @Published public var language: AppLanguage {
+        didSet {
+            UserDefaults.standard.set(language.rawValue, forKey: kLanguage)
+            MenuBarController.shared.refreshLocalizedText()
+        }
+    }
+
+    /// Whether the interface is shown in Simplified Chinese.
+    public var usesChinese: Bool {
+        switch language {
+        case .chinese: return true
+        case .english: return false
+        case .system: return Locale.preferredLanguages.first?.hasPrefix("zh") ?? false
+        }
+    }
     
     // MARK: - Real-time State
-    @Published public var lockScreenStatus = "正在初始化锁屏显示接口…"
+    @Published public var lockScreenStatus: LockScreenStatus = .initializing
     @Published public var isTestModeActive: Bool = false {
         didSet {
             if !isTestModeActive {
@@ -95,7 +159,7 @@ public final class AppSettings: ObservableObject {
     @Published public var currentLidAngle: Double = 120.0
     @Published public var isSensorConnected: Bool = false
     @Published public var isClosing: Bool = false
-    @Published public var sensorStatusMessage: String = "正在初始化传感器…"
+    @Published public var sensorStatus: SensorStatus = .initializing
     @Published public var hasScreenRecordingPermission: Bool = false
     @Published public var lastCaptureDate: Date? = nil
     @Published public var isScreenCaptureDormant: Bool = true
@@ -105,6 +169,7 @@ public final class AppSettings: ObservableObject {
         
         // Defaults matching User Preferences
         self.hasCompletedOnboarding = defaults.bool(forKey: kHasCompletedOnboarding)
+        self.language = AppLanguage(rawValue: defaults.string(forKey: kLanguage) ?? "") ?? .system
         self.startTiltAngle = defaults.object(forKey: kStartTiltAngle) != nil ? defaults.double(forKey: kStartTiltAngle) : 115.0
         self.endTiltAngle = defaults.object(forKey: kEndTiltAngle) != nil ? defaults.double(forKey: kEndTiltAngle) : 3.0
         self.followSpeed = defaults.object(forKey: kFollowSpeed) != nil ? defaults.double(forKey: kFollowSpeed) : 16.0
