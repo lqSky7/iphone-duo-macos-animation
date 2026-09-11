@@ -151,12 +151,21 @@ public final class ScreenCapture {
             return img.cgImage(forProposedRect: nil, context: nil, hints: nil)
         }
         
-        let fallbackPaths = [
+        var fallbackPaths: [String] = [
+            Bundle.main.path(forResource: "default", ofType: "png"),
+            Bundle.main.resourcePath.map { "\($0)/default.png" },
             Bundle.main.bundlePath + "/Contents/Resources/default.png",
             Bundle.main.bundlePath + "/Resources/default.png",
-            CommandLine.arguments[0].split(separator: "/").dropLast().joined(separator: "/") + "/Resources/default.png",
-            "/Users/ca5/Desktop/iphone-duo-macos-animation/Resources/default.png"
-        ]
+            FileManager.default.currentDirectoryPath + "/Resources/default.png",
+            FileManager.default.currentDirectoryPath + "/default.png"
+        ].compactMap { $0 }
+        
+        if let execPath = Bundle.main.executablePath {
+            let execDir = (execPath as NSString).deletingLastPathComponent
+            fallbackPaths.append(execDir + "/Resources/default.png")
+            fallbackPaths.append(execDir + "/../Resources/default.png")
+        }
+        
         for path in fallbackPaths {
             if let img = NSImage(contentsOfFile: path),
                let cg = img.cgImage(forProposedRect: nil, context: nil, hints: nil) {

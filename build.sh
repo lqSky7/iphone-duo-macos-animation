@@ -83,7 +83,7 @@ cp "$INFO_PLIST" "$CONTENTS_DIR/Info.plist"
 # Generate or copy AppIcon
 if [ ! -f "$DIR/Resources/AppIcon.icns" ] && [ -f "$DIR/Resources/AppIcon.png" ]; then
     echo "▶ Generating AppIcon.icns from AppIcon.png..."
-    ICONSET="/tmp/AppIcon.iconset"
+    ICONSET="$BUILD_DIR/AppIcon.iconset"
     rm -rf "$ICONSET"
     mkdir -p "$ICONSET"
     sips -z 16 16     "$DIR/Resources/AppIcon.png" --out "$ICONSET/icon_16x16.png" >/dev/null 2>&1
@@ -107,8 +107,6 @@ fi
 
 if [ -d "$DIR/Resources/Untitled.icon" ]; then
     cp -R "$DIR/Resources/Untitled.icon" "$RESOURCES_DIR/Untitled.icon"
-elif [ -d "/Users/ca5/Desktop/Untitled.icon" ]; then
-    cp -R "/Users/ca5/Desktop/Untitled.icon" "$RESOURCES_DIR/Untitled.icon"
 fi
 
 if [ -f "$DIR/Resources/default.png" ]; then
@@ -133,7 +131,7 @@ codesign --force --deep --sign "$SIGNING_IDENTITY" "$APP_BUNDLE"
 # 7. Create Disk Image (DMG) Installer
 DMG_OUTPUT="$BUILD_DIR/macTilt.dmg"
 echo "▶ Creating Disk Image ($DMG_OUTPUT)..."
-DMG_STAGING="/tmp/mactilt_dmg_staging"
+DMG_STAGING="$BUILD_DIR/dmg_staging"
 rm -rf "$DMG_STAGING" "$DMG_OUTPUT"
 mkdir -p "$DMG_STAGING"
 cp -R "$APP_BUNDLE" "$DMG_STAGING/macTilt.app"

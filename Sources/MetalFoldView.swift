@@ -95,11 +95,21 @@ public final class MetalFoldView: MTKView, MTKViewDelegate {
         
         // If still nil, compile from source file directly
         if library == nil {
-            let possiblePaths = [
+            var possiblePaths: [String] = [
+                Bundle.main.path(forResource: "FoldShaders", ofType: "metal"),
+                Bundle.main.resourcePath.map { "\($0)/FoldShaders.metal" },
                 Bundle.main.bundlePath + "/Contents/Resources/FoldShaders.metal",
                 Bundle.main.bundlePath + "/FoldShaders.metal",
-                "/Users/ca5/Desktop/iphone-duo-macos-animation/Sources/FoldShaders.metal"
-            ]
+                FileManager.default.currentDirectoryPath + "/Sources/FoldShaders.metal",
+                FileManager.default.currentDirectoryPath + "/FoldShaders.metal"
+            ].compactMap { $0 }
+            
+            if let execPath = Bundle.main.executablePath {
+                let execDir = (execPath as NSString).deletingLastPathComponent
+                possiblePaths.append(execDir + "/FoldShaders.metal")
+                possiblePaths.append(execDir + "/../Resources/FoldShaders.metal")
+            }
+            
             for p in possiblePaths {
                 if let source = try? String(contentsOfFile: p, encoding: .utf8) {
                     library = try? dev.makeLibrary(source: source, options: nil)
