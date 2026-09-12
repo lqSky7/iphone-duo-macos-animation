@@ -198,10 +198,8 @@ public final class LidSensor {
     }
     
     public func handleWillSleep() {
-        if !AppSettings.shared.isHardwareSensor {
-            // Clamshell mode: animate fold on sleep
-            animateFold()
-        }
+        // Closing animation is not possible without continuous LAS hardware;
+        // screen shuts off immediately when the lid switch closes.
     }
     
     /// Runs bodies on main without deadlocking when already there.
@@ -342,7 +340,7 @@ public final class LidSensor {
     public func animateUnfold() {
         isSimulating = true
         simulationStartTime = CACurrentMediaTime()
-        simulationDuration = 0.55
+        simulationDuration = AppSettings.shared.clamshellOpeningDuration
         simulationStartTurn = max(0.85, displayTurn)
         simulationTargetTurn = 0.0
         simulationStartAngle = 35.0
@@ -350,15 +348,13 @@ public final class LidSensor {
         AppSettings.shared.isClosing = false
     }
     
+    public func triggerOpeningPreview() {
+        StreamCapture.shared.prime()
+        animateUnfold()
+    }
+    
     public func animateFold() {
-        isSimulating = true
-        simulationStartTime = CACurrentMediaTime()
-        simulationDuration = 0.45
-        simulationStartTurn = displayTurn
-        simulationTargetTurn = 0.85
-        simulationStartAngle = 120.0
-        simulationTargetAngle = 35.0
-        AppSettings.shared.isClosing = true
+        // Closing animation is not possible on no-LAS Macs
     }
     
     public func start() {
@@ -747,8 +743,11 @@ public final class LidSensor {
             if currentClosed != lastKnownClamshellClosed {
                 lastKnownClamshellClosed = currentClosed
                 if currentClosed {
-                    animateFold()
+                    // Closed: screen backlight cuts off immediately; do not animate close
+                    isSimulating = false
+                    displayTurn = 0.0
                 } else {
+                    // Opened: trigger customizable opening unfold animation
                     animateUnfold()
                 }
             }

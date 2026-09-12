@@ -36,8 +36,20 @@ public final class AppSettings: ObservableObject {
     private let kHasCompletedOnboarding = "mactilt_hasCompletedOnboarding"
     private let kAutomaticallyCheckForUpdates = "mactilt_automaticallyCheckForUpdates"
     private let kHideMenuBarIcon = "mactilt_hideMenuBarIcon"
+    private let kClamshellOpeningDuration = "mactilt_clamshellOpeningDuration"
     
     // MARK: - Customizable Animation Options
+    @Published public var clamshellOpeningDuration: Double {
+        didSet {
+            let clamped = min(max(clamshellOpeningDuration, 0.4), 2.5)
+            if clamped != clamshellOpeningDuration {
+                clamshellOpeningDuration = clamped
+                return
+            }
+            UserDefaults.standard.set(clamshellOpeningDuration, forKey: kClamshellOpeningDuration)
+        }
+    }
+    
     @Published public var automaticallyCheckForUpdates: Bool {
         didSet { UserDefaults.standard.set(automaticallyCheckForUpdates, forKey: kAutomaticallyCheckForUpdates) }
     }
@@ -138,6 +150,7 @@ public final class AppSettings: ObservableObject {
         self.hideMenuBarIcon = defaults.object(forKey: kHideMenuBarIcon) != nil ? defaults.bool(forKey: kHideMenuBarIcon) : false
         self.enableLockScreenPriority = defaults.object(forKey: kEnableLockScreenPriority) != nil ? defaults.bool(forKey: kEnableLockScreenPriority) : true
         self.automaticallyCheckForUpdates = defaults.object(forKey: kAutomaticallyCheckForUpdates) != nil ? defaults.bool(forKey: kAutomaticallyCheckForUpdates) : true
+        self.clamshellOpeningDuration = defaults.object(forKey: kClamshellOpeningDuration) != nil ? defaults.double(forKey: kClamshellOpeningDuration) : 0.95
         
         // Listen for app becoming active to re-check permissions immediately
         appActiveObserver = NotificationCenter.default.addObserver(

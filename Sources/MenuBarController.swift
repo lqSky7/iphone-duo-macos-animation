@@ -2,14 +2,12 @@ import Foundation
 import AppKit
 import SwiftUI
 
-public final class MenuBarController: NSObject, NSWindowDelegate {
+public final class MenuBarController: NSObject, NSWindowDelegate, NSMenuDelegate {
     public static let shared = MenuBarController()
     
     private var statusItem: NSStatusItem?
     private var controlPanelWindow: NSWindow?
     private var onboardingWindow: NSWindow?
-    private var angleMenuItem: NSMenuItem?
-    private var updateMenuItem: NSMenuItem?
     private var lastAngle: Double = 120.0
     private var lastIsConnected: Bool = false
     
@@ -27,37 +25,7 @@ public final class MenuBarController: NSObject, NSWindowDelegate {
         }
         
         let menu = NSMenu()
-        
-        let header = NSMenuItem(title: "macTilt Clamshell Animation", action: nil, keyEquivalent: "")
-        header.isEnabled = false
-        menu.addItem(header)
-        
-        let updateItem = NSMenuItem(title: "✨ Update Available", action: #selector(openLatestRelease), keyEquivalent: "")
-        updateItem.target = self
-        updateItem.isHidden = true
-        self.updateMenuItem = updateItem
-        menu.addItem(updateItem)
-        
-        let angleItem = NSMenuItem(title: "Lid Sensor: Initializing...", action: nil, keyEquivalent: "")
-        angleItem.isEnabled = false
-        self.angleMenuItem = angleItem
-        menu.addItem(angleItem)
-        
-        menu.addItem(NSMenuItem.separator())
-        
-        // Deliberately minimal: the control panel owns every other action
-        // (permissions, re-capture, interactive preview, update check). Keeping
-        // duplicates here made the menu a second, staler copy of the panel.
-        let openSettings = NSMenuItem(title: "Control Panel & Settings...", action: #selector(openControlPanel), keyEquivalent: ",")
-        openSettings.target = self
-        menu.addItem(openSettings)
-        
-        menu.addItem(NSMenuItem.separator())
-        
-        let quitItem = NSMenuItem(title: "Quit macTilt", action: #selector(quitApp), keyEquivalent: "q")
-        quitItem.target = self
-        menu.addItem(quitItem)
-        
+        menu.delegate = self
         item.menu = menu
         self.statusItem = item
         
@@ -76,39 +44,118 @@ public final class MenuBarController: NSObject, NSWindowDelegate {
         lastIsConnected = isConnected
         
         if let button = statusItem?.button {
-            if AppSettings.shared.showAngleInMenuBar {
-                if AppSettings.shared.isHardwareSensor {
-                    button.title = " \(Int(angle))°"
-                } else {
-                    button.title = ""
-                }
+            if AppSettings.shared.showAngleInMenuBar && AppSettings.shared.isHardwareSensor {
+                button.title = " \(Int(angle))°"
             } else {
                 button.title = ""
-            }
-        }
-        
-        if let angleItem = self.angleMenuItem {
-            if isConnected {
-                if AppSettings.shared.isHardwareSensor {
-                    let status = AppSettings.shared.isClosing ? "Closing (\(Int(angle))°)" : "Open (\(Int(angle))°)"
-                    angleItem.title = "Sensor: \(status)"
-                } else {
-                    angleItem.title = "Mode: Clamshell Auto-Animation"
-                }
-            } else {
-                angleItem.title = "Lid Sensor: Disconnected"
             }
         }
     }
     
     public func refreshMenuBarTitle() {
         if let button = statusItem?.button {
-            if AppSettings.shared.showAngleInMenuBar {
+            if AppSettings.shared.showAngleInMenuBar && AppSettings.shared.isHardwareSensor {
                 button.title = " \(Int(lastAngle))°"
             } else {
                 button.title = ""
             }
         }
+    }
+    
+    // MARK: - NSMenuDelegate
+    public func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+        
+        let isHW = AppSettings.shared.isHardwareSensor
+        
+        // 1. Header
+        let headerTitle = isHW ? "macTilt Lid Tilt Animation" : "macTilt Clamshell Animation"
+        let header = NSMenuItem(title: headerTitle, action: nil, keyEquivalent: "")
+        header.isEnabled = false
+        menu.addItem(header)
+        
+        // 2. Update Available (if any)
+        if UpdateChecker.shared.updateAvailable {
+            let updateItem = NSMenuItem(
+                title: "✨ Download \(UpdateChecker.shared.latestVersion) Update...",
+                action: #selector(openLatestRelease),
+                keyEquivalent: ""
+            )
+            updateItem.target = self
+            menu.addItem(updateItem)
+        }
+        
+        // 3. Status indicator
+        let statusTitle: String
+        if lastIsConnected {
+            if isHW {
+                let status = AppSettings.shared.isClosing ? "Closing (\(Int(lastAngle))°)" : "Open (\(Int(lastAngle))°)"
+                statusTitle = "Sensor: \(status)"
+            } else {
+                statusTitle = "Mode: Clamshell Opening Animation"
+            }
+        } else {
+            statusTitle = "Lid Sensor: Initializing..."
+        }
+        let statusItem = NSMenuItem(title: statusTitle, action: nil, keyEquivalent: "")
+        statusItem.isEnabled = false
+        menu.addItem(statusItem)
+        
+        // 4. Clamshell Opening Animation Controls — ONLY IF NO LAS SENSOR DETECTED!
+        if !isHW {
+            menu.addItem(NSMenuItem.separator())
+            
+            let previewItem = NSMenuItem(
+                title: "▶ Preview Opening Animation",
+                action: #selector(triggerOpeningPreview),
+                keyEquivalent: "p"
+            )
+            previewItem.target = self
+            menu.addItem(previewItem)
+            
+            let durationSubmenu = NSMenu(title: "Opening Speed")
+            let speeds: [(title: String, duration: Double)] = [
+                ("⚡ Snappy (0.60s)", 0.60),
+                ("✨ Natural (0.95s)", 0.95),
+                ("🎬 Smooth (1.40s)", 1.40),
+                ("🍿 Cinematic (2.00s)", 2.00)
+            ]
+            
+            let currentDur = AppSettings.shared.clamshellOpeningDuration
+            for (title, dur) in speeds {
+                let subItem = NSMenuItem(title: title, action: #selector(setSpeedPreset(_:)), keyEquivalent: "")
+                subItem.target = self
+                subItem.representedObject = dur
+                if abs(currentDur - dur) < 0.08 {
+                    subItem.state = .on
+                }
+                durationSubmenu.addItem(subItem)
+            }
+            
+            let durationMenuItem = NSMenuItem(
+                title: "Opening Speed (\(String(format: "%.2fs", currentDur)))",
+                action: nil,
+                keyEquivalent: ""
+            )
+            durationMenuItem.submenu = durationSubmenu
+            menu.addItem(durationMenuItem)
+        }
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        let checkUpdatesItem = NSMenuItem(title: "Check for Updates...", action: #selector(checkForUpdates), keyEquivalent: "u")
+        checkUpdatesItem.target = self
+        menu.addItem(checkUpdatesItem)
+        
+        let openSettings = NSMenuItem(title: "Control Panel & Settings...", action: #selector(openControlPanel), keyEquivalent: ",")
+        openSettings.target = self
+        menu.addItem(openSettings)
+        
+        menu.addItem(NSMenuItem.separator())
+        
+        let quitItem = NSMenuItem(title: "Quit macTilt", action: #selector(quitApp), keyEquivalent: "q")
+        quitItem.target = self
+        menu.addItem(quitItem)
     }
     
     @objc public func openControlPanel() {
@@ -180,16 +227,27 @@ public final class MenuBarController: NSObject, NSWindowDelegate {
     }
     
     public func refreshUpdateMenuState() {
-        DispatchQueue.main.async {
-            if UpdateChecker.shared.updateAvailable {
-                self.updateMenuItem?.title = "✨ Download \(UpdateChecker.shared.latestVersion) Update..."
-                self.updateMenuItem?.isHidden = false
-            } else {
-                self.updateMenuItem?.isHidden = true
-            }
+        DispatchQueue.main.async { [weak self] in
+            guard let menu = self?.statusItem?.menu else { return }
+            self?.menuNeedsUpdate(menu)
         }
     }
     
+    @objc private func setSpeedPreset(_ sender: NSMenuItem) {
+        if let dur = sender.representedObject as? Double {
+            AppSettings.shared.clamshellOpeningDuration = dur
+            LidSensor.shared.triggerOpeningPreview()
+        }
+    }
+    
+    @objc private func triggerOpeningPreview() {
+        LidSensor.shared.triggerOpeningPreview()
+    }
+    
+    @objc private func checkForUpdates() {
+        UpdateChecker.shared.checkForUpdates(userInitiated: true)
+    }
+
     @objc private func openLatestRelease() {
         UpdateChecker.shared.openLatestRelease()
     }

@@ -42,8 +42,12 @@ public struct LiquidGlassControlPanel: View {
                     // Battery & Performance Card
                     batteryCard
                     
-                    // Tilt Trigger Angles Card
-                    tiltCard
+                    // Tilt Trigger Angles Card (Hardware LAS) vs Clamshell Opening Card (No LAS)
+                    if settings.isHardwareSensor {
+                        tiltCard
+                    } else {
+                        clamshellOpeningCard
+                    }
                     
                     // Display Source & Menu Bar Card
                     displaySourceCard
@@ -119,11 +123,19 @@ public struct LiquidGlassControlPanel: View {
                     .frame(width: 8, height: 8)
                 
                 VStack(alignment: .trailing, spacing: 1) {
-                    Text("\(Int(settings.currentLidAngle))°")
-                        .font(.system(size: 18, weight: .bold, design: .rounded))
-                    Text(angleStatusText)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                    if settings.isHardwareSensor {
+                        Text("\(Int(settings.currentLidAngle))°")
+                            .font(.system(size: 18, weight: .bold, design: .rounded))
+                        Text(angleStatusText)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("Clamshell")
+                            .font(.system(size: 15, weight: .bold, design: .rounded))
+                        Text("Opening Mode")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
             .padding(.horizontal, 10)
@@ -309,6 +321,95 @@ public struct LiquidGlassControlPanel: View {
         }
     }
     
+    // MARK: - Clamshell Opening Animation Card (Macs without continuous LAS)
+    private var clamshellOpeningCard: some View {
+        HCISectionCard(title: "Clamshell Opening Animation", icon: "sparkles") {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("MacBook Pro 13\" (M1) and similar models utilize Apple's binary clamshell switch instead of continuous hinge sensors. macTilt animates a smooth 120Hz unfold whenever you open the lid from sleep.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("Opening Duration")
+                            .font(.subheadline)
+                        
+                        InfoButton("Opening Duration", content: "Average human laptop opening duration ranges from 0.8s to 1.1s. Customize how fast or cinematic your unfold animation feels.")
+                        
+                        Spacer()
+                        
+                        Text(String(format: "%.2f s", settings.clamshellOpeningDuration))
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .monospacedDigit()
+                    }
+                    
+                    Slider(value: $settings.clamshellOpeningDuration, in: 0.4...2.5, step: 0.05)
+                        .tint(Color.accentColor)
+                    
+                    HStack {
+                        Text("Snappy (0.6s)")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text("Natural (0.95s)")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text("Cinematic (2.0s)")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                
+                Divider()
+                
+                HStack(spacing: 8) {
+                    Button(action: {
+                        settings.clamshellOpeningDuration = 0.60
+                        LidSensor.shared.triggerOpeningPreview()
+                    }) {
+                        Text("⚡ Snappy")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.bordered)
+                    
+                    Button(action: {
+                        settings.clamshellOpeningDuration = 0.95
+                        LidSensor.shared.triggerOpeningPreview()
+                    }) {
+                        Text("✨ Natural")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.bordered)
+                    
+                    Button(action: {
+                        settings.clamshellOpeningDuration = 1.60
+                        LidSensor.shared.triggerOpeningPreview()
+                    }) {
+                        Text("🎬 Cinematic")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.bordered)
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        LidSensor.shared.triggerOpeningPreview()
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "play.fill")
+                            Text("Preview Unfold")
+                        }
+                        .font(.caption.bold())
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            }
+        }
+    }
+    
     // MARK: - Display Source & Menu Bar Card
     private var displaySourceCard: some View {
         HCISectionCard(title: "Display & Menu Bar", icon: "display") {
@@ -348,20 +449,22 @@ public struct LiquidGlassControlPanel: View {
                     }
                 }
                 
-                Divider()
-                
-                // Menu Bar Toggle Row
-                HStack {
-                    Text("Show Lid Angle in Menu Bar")
-                        .font(.subheadline)
+                if settings.isHardwareSensor {
+                    Divider()
                     
-                    InfoButton("Menu Bar Display", content: "Displays the live numerical degree readout (e.g. 120°) next to the status icon.")
-                    
-                    Spacer()
-                    
-                    Toggle("", isOn: $settings.showAngleInMenuBar)
-                        .labelsHidden()
-                        .disabled(settings.hideMenuBarIcon)
+                    // Menu Bar Toggle Row
+                    HStack {
+                        Text("Show Lid Angle in Menu Bar")
+                            .font(.subheadline)
+                        
+                        InfoButton("Menu Bar Display", content: "Displays the live numerical degree readout (e.g. 120°) next to the status icon.")
+                        
+                        Spacer()
+                        
+                        Toggle("", isOn: $settings.showAngleInMenuBar)
+                            .labelsHidden()
+                            .disabled(settings.hideMenuBarIcon)
+                    }
                 }
                 
                 Divider()
