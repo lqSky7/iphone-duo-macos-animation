@@ -2,9 +2,27 @@ import Foundation
 import AppKit
 
 public final class AppDelegate: NSObject, NSApplicationDelegate {
+    private func setupQuitShortcut() {
+        let mainMenu = NSMenu()
+        let appMenuItem = NSMenuItem()
+        mainMenu.addItem(appMenuItem)
+        
+        let appMenu = NSMenu()
+        appMenu.addItem(
+            NSMenuItem(
+                title: "Quit macTilt",
+                action: #selector(NSApplication.terminate(_:)),
+                keyEquivalent: "q"
+            )
+        )
+        appMenuItem.submenu = appMenu
+        NSApp.mainMenu = mainMenu
+    }
+    
     public func applicationDidFinishLaunching(_ notification: Notification) {
         // Run as accessory app with menu bar item, but allow control panel window activation
         NSApp.setActivationPolicy(.accessory)
+        setupQuitShortcut()
         
         // Initialize subsystems
         _ = MenuBarController.shared
