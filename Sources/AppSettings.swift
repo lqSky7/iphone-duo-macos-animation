@@ -20,6 +20,12 @@ public enum ImageSourceMode: Int, CaseIterable, Identifiable {
     }
 }
 
+/// Live lid angle for the settings badge alone (see AppSettings.currentLidAngle).
+public final class LiveLidAngle: ObservableObject {
+    public static let shared = LiveLidAngle()
+    @Published public var angle: Double = 120.0
+}
+
 public final class AppSettings: ObservableObject {
     public static let shared = AppSettings()
     
@@ -37,6 +43,7 @@ public final class AppSettings: ObservableObject {
     private let kHasCompletedOnboarding = "mactilt_hasCompletedOnboarding"
     private let kAutomaticallyCheckForUpdates = "mactilt_automaticallyCheckForUpdates"
     private let kHideMenuBarIcon = "mactilt_hideMenuBarIcon"
+    private let kDuoMode = "mactilt_duoMode"
     private let kClamshellOpeningDuration = "mactilt_clamshellOpeningDuration"
     private let kAutoReleaseFold = "mactilt_autoReleaseFold"
     private let kAutoReleaseDelay = "mactilt_autoReleaseDelay"
@@ -163,6 +170,12 @@ public final class AppSettings: ObservableObject {
     
     /// Hides the status bar icon entirely. Settings stay reachable by
     /// relaunching macTilt from Finder, which reopens the panel.
+    /// Duo Mode: the picture looks like it stays upright while the lid
+    /// closes. Off = the original macTilt fold.
+    @Published public var duoMode: Bool {
+        didSet { UserDefaults.standard.set(duoMode, forKey: kDuoMode) }
+    }
+
     @Published public var hideMenuBarIcon: Bool {
         didSet {
             UserDefaults.standard.set(hideMenuBarIcon, forKey: kHideMenuBarIcon)
@@ -186,7 +199,13 @@ public final class AppSettings: ObservableObject {
         }
     }
     @Published public var testTurnValue: Double = 0.0
-    @Published public var currentLidAngle: Double = 120.0
+    /// Not @Published: a moving lid would re-evaluate the whole settings panel ~10×/s.
+    /// Only the angle badge observes it, through LiveLidAngle.
+    public var currentLidAngle: Double = 120.0 {
+        didSet {
+            if Int(currentLidAngle) != Int(oldValue) { LiveLidAngle.shared.angle = currentLidAngle }
+        }
+    }
     @Published public var isSensorConnected: Bool = false
     @Published public var isHardwareSensor: Bool = false
     @Published public var isClamshellMode: Bool = false
@@ -217,6 +236,7 @@ public final class AppSettings: ObservableObject {
         self.sideVoidAmount = defaults.object(forKey: kSideVoidAmount) != nil ? defaults.double(forKey: kSideVoidAmount) : 1.0
         
         self.showAngleInMenuBar = defaults.object(forKey: kShowAngleInMenuBar) != nil ? defaults.bool(forKey: kShowAngleInMenuBar) : true
+        self.duoMode = defaults.object(forKey: kDuoMode) != nil ? defaults.bool(forKey: kDuoMode) : true
         self.hideMenuBarIcon = defaults.object(forKey: kHideMenuBarIcon) != nil ? defaults.bool(forKey: kHideMenuBarIcon) : false
         self.enableLockScreenPriority = defaults.object(forKey: kEnableLockScreenPriority) != nil ? defaults.bool(forKey: kEnableLockScreenPriority) : true
         self.automaticallyCheckForUpdates = defaults.object(forKey: kAutomaticallyCheckForUpdates) != nil ? defaults.bool(forKey: kAutomaticallyCheckForUpdates) : true

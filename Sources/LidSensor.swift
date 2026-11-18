@@ -124,6 +124,36 @@ public final class LidSensor {
                    measured + Self.predMaxLead, 180.0)
     }
 
+    // Duo mode replay. Measured on a real lid: polled at 120 Hz, the value only
+    // changes every ~100 ms, in 2–15° jumps. A picture meant to stand still shows
+    // every jump, so Duo mode plays each new value in as a straight line from where
+    // it is now over the last measured interval: ~one interval of lag, but
+    // continuous and never overshooting (≈7× less jerk on the recorded data).
+    private var duoFrom: Double = 120.0
+    private var duoTo: Double = 120.0
+    private var duoChangeTime: CFTimeInterval = 0
+    private var duoInterval: Double = 0.1
+
+    private func duoReplayValue(at now: CFTimeInterval) -> Double {
+        let p = min(max((now - duoChangeTime) / duoInterval, 0.0), 1.0)
+        return duoFrom + (duoTo - duoFrom) * p
+    }
+
+    private func duoReplayedAngle(measured: Double) -> Double {
+        let now = CACurrentMediaTime()
+        if duoChangeTime == 0 || now - duoChangeTime > 2.0 {
+            // First use or long idle: start where the lid is, no sweep in from a stale value.
+            duoFrom = measured; duoTo = measured; duoChangeTime = now
+        } else if measured != duoTo {
+            let gap = now - duoChangeTime
+            duoInterval = (gap > 0.02 && gap < 0.3) ? gap : 0.1
+            duoFrom = duoReplayValue(at: now)
+            duoTo = measured
+            duoChangeTime = now
+        }
+        return duoReplayValue(at: now)
+    }
+
     // Adaptive polling: Feature Reports must be polled (no Input Reports from LAS),
     // so vary the rate instead — 10Hz idle, 60Hz armed, 120Hz while closing.
     private var workspaceObservers: [NSObjectProtocol] = []
@@ -626,6 +656,8 @@ public final class LidSensor {
     /// Re-arms both timers only on stable transitions (no runloop churn).
     private var stableDesiredInterval: Double = 1.0 / 60.0
     private var stableIntervalTicks: Int = 0
+    private var parkAngle: Double = 120.0
+    private var parkSince: CFTimeInterval = 0
     private func adaptPollInterval(angle: Double) {
         // Transient pin wins (open fade): hold the requested rate through
         // its deadline without touching the stability tracker.
@@ -641,10 +673,21 @@ public final class LidSensor {
             ratePinInterval = 0
         }
         let settings = AppSettings.shared
+        // Parked: no fold on screen and the lid hasn't moved more than 2° for a
+        // second (sensor dither is ±1°). The sensor only changes ~10×/s anyway,
+        // and the first downward sample still kicks 120 Hz immediately, so a lid
+        // resting in the arm zone (normal use with a high start angle) no longer
+        // pays for 60 Hz polling forever.
+        let nowRate = CACurrentMediaTime()
+        if abs(angle - parkAngle) > 2.0 {
+            parkAngle = angle
+            parkSince = nowRate
+        }
+        let parked = displayTurn <= 0.001 && nowRate - parkSince > 1.0
         let desired: Double
         if isActivelyClosing {
             desired = 1.0 / 120.0
-        } else if !settings.isScreenCaptureDormant || angle <= min(135.0, settings.startTiltAngle + 15.0) || displayTurn > 0.001 {
+        } else if !parked && (!settings.isScreenCaptureDormant || angle <= min(135.0, settings.startTiltAngle + 15.0) || displayTurn > 0.001) {
             desired = 1.0 / 60.0
         } else {
             desired = 1.0 / 10.0
@@ -855,7 +898,9 @@ public final class LidSensor {
             // latency. Measured angle still drives capture thresholds and UI.
             // Leads only on live samples: dropout holds measured, confirmed
             // stillness holds measured, everything else leads up to ±8°.
-            targetTurn = settings.normalizedTurn(for: predictedAngle(measured: currentRawAngle, tracking: trackingSample, still: leadHoldStill))
+            targetTurn = settings.normalizedTurn(for: settings.duoMode
+                ? duoReplayedAngle(measured: currentRawAngle)
+                : predictedAngle(measured: currentRawAngle, tracking: trackingSample, still: leadHoldStill))
             
             // Follow easing physics
             let now = CACurrentMediaTime()
