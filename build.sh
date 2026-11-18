@@ -44,8 +44,12 @@ mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 
 # 3. Compile Metal Shaders
 echo "▶ Compiling Metal Shaders..."
-xcrun -sdk macosx metal -c "$DIR/Sources/FoldShaders.metal" -o "$BUILD_DIR/FoldShaders.air"
-xcrun -sdk macosx metallib "$BUILD_DIR/FoldShaders.air" -o "$RESOURCES_DIR/default.metallib"
+# Without the Metal Toolchain the app compiles the bundled FoldShaders.metal at launch instead.
+if xcrun -sdk macosx metal -c "$DIR/Sources/FoldShaders.metal" -o "$BUILD_DIR/FoldShaders.air" 2>/dev/null; then
+    xcrun -sdk macosx metallib "$BUILD_DIR/FoldShaders.air" -o "$RESOURCES_DIR/default.metallib"
+else
+    echo "▶ Metal Toolchain missing — shaders will compile at launch"
+fi
 cp "$DIR/Sources/FoldShaders.metal" "$RESOURCES_DIR/FoldShaders.metal"
 
 # 4. Compile Swift Sources (Universal 2: arm64 + x86_64 targeting macOS 14.0+)

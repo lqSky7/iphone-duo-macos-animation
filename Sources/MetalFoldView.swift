@@ -14,6 +14,9 @@ public struct Uniforms {
     public var sampleCount: Float
     public var motionBoost: Float
     public var sideVoid: Float
+    public var duoMode: Float    // 1 = Duo Mode, 0 = original fold
+    public var startAngle: Float // lid angle (deg) where turn = 0
+    public var endAngle: Float   // lid angle (deg) where turn = 1
     
     public init(imageSize: SIMD2<Float> = .init(1, 1),
                 cover: SIMD2<Float> = .init(1, 1),
@@ -23,7 +26,10 @@ public struct Uniforms {
                 reflectionIntensity: Float = 1.0,
                 sampleCount: Float = 32.0,
                 motionBoost: Float = 0.0,
-                sideVoid: Float = 1.0) {
+                sideVoid: Float = 1.0,
+                duoMode: Float = 1.0,
+                startAngle: Float = 115.0,
+                endAngle: Float = 3.0) {
         self.imageSize = imageSize
         self.cover = cover
         self.aspect = aspect
@@ -33,6 +39,9 @@ public struct Uniforms {
         self.sampleCount = sampleCount
         self.motionBoost = motionBoost
         self.sideVoid = sideVoid
+        self.duoMode = duoMode
+        self.startAngle = startAngle
+        self.endAngle = endAngle
     }
 }
 
@@ -84,6 +93,8 @@ public final class MetalFoldView: MTKView, MTKViewDelegate {
     // jumping to the next — temporal aliasing read as judder. Same transfer
     // function, same lag constant, sampled uniformly at render cadence.
     private var renderTurn: Float = 0.0
+    /// Duo mode's spring velocity (turn/sec).
+    private var renderVelocity: Float = 0.0
     private var lastDrawTime: CFTimeInterval = 0
     /// Render-side eased copy of motionBoost (τ ≈ 80ms). The per-tick
     /// velocity snapshot steps the blur radius in whole units mid-fold,
@@ -497,16 +508,35 @@ public final class MetalFoldView: MTKView, MTKViewDelegate {
             // it is the whole point of arming one. Consumed here so it can
             // never leak into a later frame.
             renderTurn = seededTurn ?? currentTurn
+            renderVelocity = 0.0
             seededTurn = nil
             renderMotionBoost = motionBoost
             lastSampleCount = Self.baseSampleCount(turn: renderTurn)
         } else {
             let dt = min(max(now - lastDrawTime, 0.0), 0.1)
             if dt > 0.0 {
-                let factor = 1.0 - exp(-dt * followSpeed)
-                renderTurn += (currentTurn - renderTurn) * Float(factor)
-                if abs(currentTurn - renderTurn) < 0.0005 {
-                    renderTurn = currentTurn
+                if AppSettings.shared.duoMode {
+                    // Duo: critically damped spring. The sensor reports whole degrees, and a
+                    // first-order filter turns each step into a velocity kick — invisible when
+                    // the picture moves with the panel, a visible jolt when it stands still.
+                    // ω = 2·followSpeed keeps the same average lag (2/ω vs 1/followSpeed).
+                    let omega = Float(followSpeed * 2.0)
+                    let k = omega * Float(dt)
+                    let decay = 1.0 / (1.0 + k + 0.48 * k * k + 0.235 * k * k * k)
+                    let change = renderTurn - currentTurn
+                    let temp = (renderVelocity + omega * change) * Float(dt)
+                    renderVelocity = (renderVelocity - omega * temp) * decay
+                    renderTurn = currentTurn + (change + temp) * decay
+                    if abs(currentTurn - renderTurn) < 0.0005 && abs(renderVelocity) < 0.005 {
+                        renderTurn = currentTurn
+                        renderVelocity = 0.0
+                    }
+                } else {
+                    let factor = 1.0 - exp(-dt * followSpeed)
+                    renderTurn += (currentTurn - renderTurn) * Float(factor)
+                    if abs(currentTurn - renderTurn) < 0.0005 {
+                        renderTurn = currentTurn
+                    }
                 }
                 // Velocity blur boost eases per frame too: per-tick steps
                 // in the blur radius read as focus pumping.
@@ -534,7 +564,10 @@ public final class MetalFoldView: MTKView, MTKViewDelegate {
             reflectionIntensity: reflectionIntensity,
             sampleCount: adaptiveSampleCount(turn: renderTurn),
             motionBoost: renderMotionBoost,
-            sideVoid: sideVoid
+            sideVoid: sideVoid,
+            duoMode: AppSettings.shared.duoMode ? 1.0 : 0.0,
+            startAngle: Float(AppSettings.shared.startTiltAngle),
+            endAngle: Float(AppSettings.shared.endTiltAngle)
         )
         
         encoder.setRenderPipelineState(pipeline)

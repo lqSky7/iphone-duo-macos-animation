@@ -41,6 +41,7 @@ public final class StreamCapture: NSObject, @unchecked Sendable {
     private var textureCache: CVMetalTextureCache?
     private var cacheDevice: MTLDevice?
     private var stopWorkItem: DispatchWorkItem?
+    private var overlayVisible = false // outputQueue-confined
     private let outputQueue = DispatchQueue(label: "com.mactilt.stream-output", qos: .utility)
 
     private override init() {
@@ -53,7 +54,17 @@ public final class StreamCapture: NSObject, @unchecked Sendable {
     public func prime() {
         guard Self.fastPathEnabled else { return }
         outputQueue.async { [weak self] in
-            self?.startIfNeeded()
+            guard let self else { return }
+            self.startIfNeeded()
+            // A prime no fold follows (wake, lid parked in the arm zone) used to
+            // leave a full-screen stream running until the next fold. Stop after
+            // an idle tail unless the overlay shows (noteVisible cancels this).
+            if !self.overlayVisible {
+                self.stopWorkItem?.cancel()
+                let item = DispatchWorkItem { [weak self] in self?.stopStream() }
+                self.stopWorkItem = item
+                self.outputQueue.asyncAfter(deadline: .now() + 5.0, execute: item)
+            }
         }
     }
 
@@ -62,6 +73,7 @@ public final class StreamCapture: NSObject, @unchecked Sendable {
         guard Self.fastPathEnabled else { return }
         outputQueue.async { [weak self] in
             guard let self else { return }
+            self.overlayVisible = true
             self.stopWorkItem?.cancel()
             self.stopWorkItem = nil
             self.startIfNeeded()
@@ -84,6 +96,7 @@ public final class StreamCapture: NSObject, @unchecked Sendable {
         }
         outputQueue.async { [weak self] in
             guard let self else { return }
+            self.overlayVisible = false
             self.stopWorkItem?.cancel()
             let item = DispatchWorkItem { [weak self] in
                 self?.stopStream()
