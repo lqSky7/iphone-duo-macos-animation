@@ -31,6 +31,12 @@ Which of the two a machine is gets decided from the IORegistry, before any HID a
 ## Features
 - just install and see duh
 
+### Duo Mode
+
+**Settings → Physics & Shaders → Duo Mode** (on by default). The picture looks like it is still standing upright at 90° while the lid closes: the lid becomes a window onto a screen that stays put, black creeps in from the sides, and the blur grows toward the top. Duo Mode has a fixed look, so Blur Intensity, Specular Reflection and Side Blackout are greyed out while it is on. Turn it off for the original macTilt fold, shaped by those settings.
+
+The lid angle sensor only changes about 10 times a second, in 2–15° jumps. Duo Mode plays each new reading in as a smooth line over the measured interval and follows it with a critically damped spring, so a picture that is meant to stand still doesn't jolt on every jump. That costs about 0.1 s of lag. The original fold keeps its lead predictor.
+
 ## Requirements
 
 - macOS 14.0 or later.

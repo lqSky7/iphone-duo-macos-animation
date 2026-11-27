@@ -120,7 +120,7 @@ public struct LiquidGlassSettingsView: View {
             // measurement rather than a status label.
             VStack(alignment: .trailing, spacing: 0) {
                 if settings.isHardwareSensor {
-                    Text("\(Int(settings.currentLidAngle))°")
+                    LiveAngleText()
                         .font(.system(size: 21, weight: .light))
                         .monospacedDigit()
                     Text("LAS")
@@ -526,6 +526,25 @@ public struct LiquidGlassSettingsView: View {
     private var animationPhysicsCard: some View {
         HCISectionCard(title: "Physics & Shaders", icon: "slider.horizontal.3") {
             VStack(spacing: 12) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Duo Mode")
+                            .font(.subheadline)
+                        Text("On: fixed Duo look. Off: your own blur, reflection and side blackout below.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    InfoButton("Duo Mode", content: "On: the screen looks like it is still standing at 90° as you close the lid — black creeps in from the sides and the blur grows toward the top, with a fixed look. Off: the original macTilt fold, shaped by your Blur Intensity, Specular Reflection and Side Blackout settings.")
+
+                    Spacer()
+
+                    Toggle("", isOn: $settings.duoMode)
+                        .labelsHidden()
+                }
+
+                Divider()
+
                 // Follow Speed
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
@@ -551,68 +570,72 @@ public struct LiquidGlassSettingsView: View {
                 
                 Divider()
                 
-                // Blur and Specular Dual Sliders
-                HStack(spacing: 20) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text("Blur Intensity")
-                                .font(.subheadline)
-                            InfoButton(
-                                "Blur Intensity",
-                                content: "Depth of the matte defocus that ramps up as the lid tilts — deeper folds and faster closes get softer. The blur is built from the mip chain, so it stays an even, silky matte at every intensity instead of turning grainy frosted glass.",
-                                demoLabel: "Show me at 55% fold",
-                                demo: { demoFold(0.55) }
-                            )
-                            Spacer()
-                            Text(String(format: "%.1fx", settings.blurStrength))
-                                .font(.caption)
-                                .fontWeight(.semibold)
-                                .monospacedDigit()
+                // Blur, Specular and Side Blackout shape the original fold only
+                VStack(spacing: 12) {
+                    HStack(spacing: 20) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text("Blur Intensity")
+                                    .font(.subheadline)
+                                InfoButton(
+                                    "Blur Intensity",
+                                    content: "Depth of the matte defocus that ramps up as the lid tilts — deeper folds and faster closes get softer. The blur is built from the mip chain, so it stays an even, silky matte at every intensity instead of turning grainy frosted glass.",
+                                    demoLabel: "Show me at 55% fold",
+                                    demo: { demoFold(0.55) }
+                                )
+                                Spacer()
+                                Text(String(format: "%.1fx", settings.blurStrength))
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .monospacedDigit()
+                            }
+                            Slider(value: $settings.blurStrength, in: 0.2...2.0, step: 0.1)
                         }
-                        Slider(value: $settings.blurStrength, in: 0.2...2.0, step: 0.1)
-                    }
 
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text("Specular Reflection")
+                                    .font(.subheadline)
+                                InfoButton(
+                                    "Specular Reflection",
+                                    content: "A soft cool-white highlight band that sweeps up from the hinge as the screen tilts away — like light catching a glass panel at an angle. The frozen image is never bent or lensed; this only adds the shine. 0 = off (default).",
+                                    demoLabel: "Show me at 75% fold",
+                                    demo: { demoFold(0.75) }
+                                )
+                                Spacer()
+                                Text(String(format: "%.1fx", settings.reflectionIntensity))
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .monospacedDigit()
+                            }
+                            Slider(value: $settings.reflectionIntensity, in: 0.0...2.5, step: 0.1)
+                        }
+                    }
+                
+                    Divider()
+                
+                    // Side Blackout — horizontal parallax void
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
-                            Text("Specular Reflection")
+                            Text("Side Blackout")
                                 .font(.subheadline)
                             InfoButton(
-                                "Specular Reflection",
-                                content: "A soft cool-white highlight band that sweeps up from the hinge as the screen tilts away — like light catching a glass panel at an angle. The frozen image is never bent or lensed; this only adds the shine. 0 = off (default).",
+                                "Side Blackout",
+                                content: "How much black creeps in from the left and right edges as the panel folds away from you. This is the horizontal parallax spread of the folded plane: 0% keeps the frozen frame at its full width, 100% is the physical projection, and higher values let the edges fall away harder.",
                                 demoLabel: "Show me at 75% fold",
                                 demo: { demoFold(0.75) }
                             )
                             Spacer()
-                            Text(String(format: "%.1fx", settings.reflectionIntensity))
+                            Text("\(Int(settings.sideVoidAmount * 100))%")
                                 .font(.caption)
                                 .fontWeight(.semibold)
                                 .monospacedDigit()
                         }
-                        Slider(value: $settings.reflectionIntensity, in: 0.0...2.5, step: 0.1)
+                        Slider(value: $settings.sideVoidAmount, in: 0.0...2.0, step: 0.05)
                     }
                 }
-                
-                Divider()
-                
-                // Side Blackout — horizontal parallax void
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text("Side Blackout")
-                            .font(.subheadline)
-                        InfoButton(
-                            "Side Blackout",
-                            content: "How much black creeps in from the left and right edges as the panel folds away from you. This is the horizontal parallax spread of the folded plane: 0% keeps the frozen frame at its full width, 100% is the physical projection, and higher values let the edges fall away harder.",
-                            demoLabel: "Show me at 75% fold",
-                            demo: { demoFold(0.75) }
-                        )
-                        Spacer()
-                        Text("\(Int(settings.sideVoidAmount * 100))%")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .monospacedDigit()
-                    }
-                    Slider(value: $settings.sideVoidAmount, in: 0.0...2.0, step: 0.05)
-                }
+                .disabled(settings.duoMode)
+                .opacity(settings.duoMode ? 0.4 : 1.0)
             }
         }
     }
@@ -802,6 +825,7 @@ public struct LiquidGlassSettingsView: View {
                 settings.imageSourceMode = .liveCapture
                 settings.blurStrength = 0.5
                 settings.reflectionIntensity = 0.0
+                settings.duoMode = true
                 settings.showAngleInMenuBar = true
                 settings.isTestModeActive = false
                 settings.testTurnValue = 0.0
@@ -966,3 +990,8 @@ private struct InfoButton: View {
     }
 }
 
+/// Only this text re-renders when the lid moves, not the whole panel.
+private struct LiveAngleText: View {
+    @ObservedObject var live = LiveLidAngle.shared
+    var body: some View { Text("\(Int(live.angle))°") }
+}

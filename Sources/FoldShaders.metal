@@ -14,6 +14,9 @@ struct Uniforms {
     float sampleCount;   // adaptive quality: 12 / 20 / 32 (float for Swift layout parity)
     float motionBoost;   // velocity-aware extra blur radius (0 = still, larger = fast close)
     float sideVoid;      // 0 = frame keeps full width, 1 = physical default, >1 = deeper side blackout
+    float duoMode;       // 1 = Duo Mode (upright picture), 0 = original fold
+    float startAngle;    // lid angle (deg) where turn = 0
+    float endAngle;      // lid angle (deg) where turn = 1
 };
 
 struct VertexOut {
@@ -130,10 +133,77 @@ inline float3 sampleSmoothMatteBlur(texture2d<float> tex,
     return mix(sharp, blurred, smoothstep(0.0, 2.0, radius));
 }
 
-fragment float4 foldFragment(VertexOut in [[stage_in]],
-                             texture2d<float> tex [[texture(0)]],
-                             sampler s [[sampler(0)]],
-                             constant Uniforms &u [[buffer(0)]]) {
+// "The picture stays upright." The lid is a window onto a virtual screen that
+// follows the panel down to 90° and then stays standing while the lid keeps
+// closing. Each pixel casts a ray from the viewer's eye through its spot on the
+// real (tilting) panel and samples the virtual screen where the ray lands. The
+// picture therefore shrinks away from the panel edges, black on the sides and
+// top, while the hinge line stays put. Blur grows toward the top and with the fold.
+inline float4 duoFold(VertexOut in,
+                     texture2d<float> tex,
+                     sampler s,
+                     constant Uniforms &u) {
+    float turn = clamp(u.turn, 0.0, 1.0);
+    float2 uiPixel = 2.0 / max(float2(1.0), u.imageSize);
+    int quality = int(clamp(u.sampleCount, 4.0, 32.0));
+
+    if (turn <= 0.00001) {
+        return float4(sampleSmoothMatteBlur(tex, s, in.uv, 0.0, u.cover, uiPixel, in.position.xy, quality), 1.0);
+    }
+
+    // Angles from the keyboard deck. Real panel follows the sensor; virtual screen
+    // is the panel itself until 90°, then stays upright (or at start angle if < 90).
+    float panel = mix(u.startAngle, u.endAngle, turn) * (M_PI_F / 180.0);
+    float upright = min(u.startAngle, 90.0) * (M_PI_F / 180.0);
+    // Lag between panel and virtual screen saturates softly at ~28°: beyond that the
+    // picture leans along with the lid instead of stretching (grazing-angle smear).
+    const float maxLag = 28.0 * (M_PI_F / 180.0);
+    // Soft onset (softplus, ~6° wide): the picture lets go of the panel gradually
+    // around 90° instead of stopping dead, which read as a hitch.
+    const float onset = 6.0 * (M_PI_F / 180.0);
+    float start = u.startAngle * (M_PI_F / 180.0);
+    // Minus the value at the start angle, so the first frame is exactly the desktop.
+    float engaged = max(onset * (log(1.0 + exp((upright - panel) / onset)) - log(1.0 + exp((upright - start) / onset))), 0.0);
+    float virt = panel + maxLag * tanh(engaged / maxLag);
+
+    // Units: panel height = 1. Hinge on the x axis, y up, z toward the viewer.
+    float aspect = max(0.1, u.aspect);
+    float fromHinge = clamp(1.0 - in.uv.y, 0.0, 1.0);
+    float3 P = float3((in.uv.x - 0.5) * aspect, fromHinge * sin(panel), fromHinge * cos(panel));
+    const float3 eye = float3(0.0, 0.7, 2.6); // tuned by eye on the real lid (a higher, 'realistic' eye looked worse)
+
+    float3 vdir = float3(0.0, sin(virt), cos(virt));
+    float3 vnorm = float3(0.0, cos(virt), -sin(virt));
+    float3 ray = P - eye;
+    float denom = dot(vnorm, ray);
+    float t = abs(denom) > 1e-5 ? -dot(vnorm, eye) / denom : -1.0;
+    float3 H = eye + ray * max(t, 0.0);
+    float2 uv = float2(0.5 + H.x / aspect, 1.0 - dot(H, vdir));
+    // Late in the fold the true projection stretches the picture vertically; ease the
+    // vertical axis back toward the panel's own so it keeps its shape (sides stay physical).
+    uv.y = mix(uv.y, in.uv.y, 0.65 * smoothstep(0.30, 0.80, turn));
+
+    // Gradient blur: grows with the fold and toward the top of the panel.
+    // Fixed Duo look: the user's Blur slider only drives the original fold.
+    float radius = (160.0 * 0.5 * smoothstep(0.0, 0.6, turn) + clamp(u.motionBoost, 0.0, 24.0))
+                 * smoothstep(0.05, 1.0, fromHinge);
+    float3 color = sampleSmoothMatteBlur(tex, s, clamp(uv, 0.0, 1.0), radius, u.cover, uiPixel, in.position.xy, quality);
+    color *= 1.0 - 0.45 * smoothstep(0.2, 1.0, turn) * fromHinge; // dims toward the top
+
+    // Outside the virtual screen is the void (soft edge, softer when blurred).
+    float2 edge = fwidth(uv) + radius * 0.0015;
+    float2 inRange = smoothstep(-edge, edge, uv) * (1.0 - smoothstep(1.0 - edge, 1.0 + edge, uv));
+    float mask = inRange.x * inRange.y * step(0.0, t);
+
+    color *= 1.0 - smoothstep(0.55, 0.97, turn); // long fade: spread over the grazing end instead of a late rush
+    return float4(mix(DARK, color, mask), 1.0);
+}
+
+// Original macTilt fold (Duo Mode off).
+inline float4 classicFold(VertexOut in,
+                     texture2d<float> tex,
+                     sampler s,
+                     constant Uniforms &u) {
     float turn = clamp(u.turn, 0.0, 1.0);
     float2 uiPixel = 2.0 / max(float2(1.0), u.imageSize);
     int quality = int(clamp(u.sampleCount, 4.0, 32.0));
@@ -209,4 +279,11 @@ fragment float4 foldFragment(VertexOut in [[stage_in]],
     color *= finalClose;
     
     return float4(mix(DARK, color, mask * finalClose), 1.0);
+}
+
+fragment float4 foldFragment(VertexOut in [[stage_in]],
+                             texture2d<float> tex [[texture(0)]],
+                             sampler s [[sampler(0)]],
+                             constant Uniforms &u [[buffer(0)]]) {
+    return u.duoMode > 0.5 ? duoFold(in, tex, s, u) : classicFold(in, tex, s, u);
 }

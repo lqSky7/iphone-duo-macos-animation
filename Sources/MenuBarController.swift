@@ -55,18 +55,32 @@ public final class MenuBarController: NSObject, NSWindowDelegate, NSMenuDelegate
 
         if let button = statusItem?.button {
             if AppSettings.shared.showAngleInMenuBar && AppSettings.shared.isHardwareSensor {
-                button.title = " \(Int(angle))°"
+                // Every title assignment re-renders the status item for each menu bar
+                // (the biggest idle cost, measured). Set it only when the text changes,
+                // and let the sensor's ±1° dither through at most once a second.
+                let shown = Int(angle)
+                let jump = abs(shown - lastShownAngle)
+                if jump >= 2 || (jump == 1 && now - lastShownTime >= 1.0) {
+                    lastShownAngle = shown
+                    lastShownTime = now
+                    button.title = " \(shown)°"
+                }
             } else if !button.title.isEmpty {
                 button.title = ""
             }
         }
     }
+    private var lastShownAngle: Int = -1000
+    private var lastShownTime: CFTimeInterval = 0
     
     public func refreshMenuBarTitle() {
         if let button = statusItem?.button {
             if AppSettings.shared.showAngleInMenuBar && AppSettings.shared.isHardwareSensor {
-                button.title = " \(Int(lastAngle))°"
+                lastShownAngle = Int(lastAngle)
+                lastShownTime = CACurrentMediaTime()
+                button.title = " \(lastShownAngle)°"
             } else {
+                lastShownAngle = -1000
                 button.title = ""
             }
         }
@@ -237,6 +251,15 @@ public final class MenuBarController: NSObject, NSWindowDelegate, NSMenuDelegate
         if AppSettings.shared.isTestModeActive {
             AppSettings.shared.isTestModeActive = false
             AppSettings.shared.testTurnValue = 0.0
+        }
+        // A closed settings window kept its SwiftUI view alive, re-evaluating the
+        // whole panel on every settings change (lid angle ~10×/s). Drop it; the
+        // next open builds a fresh one.
+        if let win = notification.object as? NSWindow, win === settingsWindow {
+            DispatchQueue.main.async { [weak self] in
+                win.contentViewController = nil
+                self?.settingsWindow = nil
+            }
         }
     }
     
